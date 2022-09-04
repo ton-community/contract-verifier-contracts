@@ -63,3 +63,11 @@ export function deploySource(verifierId: string, codeCellHash: string, jsonURL: 
     )
     .endCell();
 }
+
+export function changeOwner(newOwner: Address): Cell {
+  return beginCell()
+    .storeUint(0x3, 32)
+    .storeUint(0, 64)
+    .storeAddress(newOwner)
+    .endCell();
+}

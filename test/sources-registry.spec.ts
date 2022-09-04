@@ -110,6 +110,40 @@ describe("Sources", () => {
 
     expect(send.exit_code).to.equal(401);
   });
+
+  it("changes the owner", async () => {
+    await sourceRegistryContract.contract.sendInternalMessage(
+      internalMessage({
+        from: randomAddress("owner"),
+        body: sourcesRegistry.changeOwner(randomAddress("newowner")),
+      })
+    );
+
+    const send = await sourceRegistryContract.contract.sendInternalMessage(
+      internalMessage({
+        from: randomAddress("newowner"),
+        body: sourcesRegistry.deploySource(
+          specs[0].verifier,
+          specs[0].codeCellHash,
+          specs[0].jsonURL
+        ),
+      })
+    );
+
+    expect(send.type).to.equal("success");
+    expect(send.exit_code).to.equal(0);
+  });
+
+  it("disallows a non-owner to change the owner", async () => {
+    const send = await sourceRegistryContract.contract.sendInternalMessage(
+      internalMessage({
+        from: randomAddress("notowner"),
+        body: sourcesRegistry.changeOwner(randomAddress("newowner")),
+      })
+    );
+
+    expect(send.exit_code).to.equal(401);
+  });
 });
 
 async function parseUrlFromGetNftData(contract: SmartContract): Promise<string | null> {

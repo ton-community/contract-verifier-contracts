@@ -17,7 +17,7 @@
   );
 }
 
-() save_data(slice owner_address, int next_item_index, cell nft_item_code) impure inline {
+() save_data(slice owner_address, cell nft_item_code) impure inline {
   set_data(begin_cell()
     .store_slice(owner_address)
     .store_ref(nft_item_code)
@@ -80,7 +80,7 @@ slice calculate_nft_item_address(int wc, cell state_init) {
   ;; TODO op codes => CRC?
   if (op == 3) { ;; change owner
     slice new_owner = in_msg_body~load_msg_addr();
-    ;; save_data(new_owner, content, nft_item_code, royalty_params);
+    save_data(new_owner, nft_item_code);
     return ();
   }
   throw(0xffff);
