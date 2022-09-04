@@ -1,0 +1,94 @@
+;; NFT collection smart contract
+
+;; storage scheme
+;; storage#_ owner_address:MsgAddress
+;;           ^[collection_content:^Cell] ;; TODO square brackets?
+;;           nft_item_code:^Cell
+;;           = Storage;
+#pragma version >=0.2.0;
+#include "imports/stdlib.fc";
+#include "imports/params.fc";
+
+(slice, cell) load_data() inline {
+  var ds = get_data().begin_parse();
+  return (
+    ds~load_msg_addr(), ;; owner_address
+    ds~load_ref() ;; nft_item_code
+  );
+}
+
+() save_data(slice owner_address, int next_item_index, cell nft_item_code) impure inline {
+  set_data(begin_cell()
+    .store_slice(owner_address)
+    .store_ref(nft_item_code)
+    .end_cell());
+}
+
+cell calculate_nft_item_state_init(int item_index, cell nft_item_code) {
+  cell data = begin_cell().store_uint(item_index, 256).store_slice(my_address()).end_cell();
+  return begin_cell().store_uint(0, 2).store_dict(nft_item_code).store_dict(data).store_uint(0, 1).end_cell();
+}
+
+slice calculate_nft_item_address(int wc, cell state_init) {
+  return begin_cell().store_uint(4, 3)
+                     .store_int(wc, 8)
+                     .store_uint(cell_hash(state_init), 256)
+                     .end_cell()
+                     .begin_parse();
+}
+
+() deploy_nft_item(int item_index, cell nft_item_code, cell nft_content) impure {
+  cell state_init = calculate_nft_item_state_init(item_index, nft_item_code);
+  slice nft_address = calculate_nft_item_address(workchain(), state_init);
+  var msg = begin_cell()
+            .store_uint(0x18, 6)
+            .store_slice(nft_address)
+            .store_coins(0) ;; TODO?
+            .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
+            .store_ref(state_init)
+            .store_ref(nft_content);
+  send_raw_message(msg.end_cell(), 1); ;; pay transfer fees separately, revert on errors
+}
+
+() recv_internal(cell in_msg_full, slice in_msg_body) impure {
+  if (in_msg_body.slice_empty?()) { ;; ignore empty messages
+    return ();
+  }
+  slice cs = in_msg_full.begin_parse();
+  int flags = cs~load_uint(4);
+    
+  if (flags & 1) { ;; ignore all bounced messages
+    return ();
+  }
+  slice sender_address = cs~load_msg_addr();
+
+  int op = in_msg_body~load_uint(32);
+  int query_id = in_msg_body~load_uint(64);
+
+  var (owner_address, nft_item_code) = load_data();
+
+  ;; TODO - owner should be verifier registry
+  throw_unless(401, equal_slices(sender_address, owner_address));
+  
+  if (op == 1) { ;; deploy new nft
+    int item_index = in_msg_body~load_uint(256);
+    ~dump item_index;
+    deploy_nft_item(item_index, nft_item_code, in_msg_body~load_ref());
+    return ();
+  }
+
+  ;; TODO op codes => CRC?
+  if (op == 3) { ;; change owner
+    slice new_owner = in_msg_body~load_msg_addr();
+    ;; save_data(new_owner, content, nft_item_code, royalty_params);
+    return ();
+  }
+  throw(0xffff);
+}
+
+;; Get methods
+slice get_nft_address_by_index(int index) method_id {
+  var (_, nft_item_code) = load_data();
+  cell state_init = calculate_nft_item_state_init(index, nft_item_code);
+  return calculate_nft_item_address(workchain(), state_init);
+}

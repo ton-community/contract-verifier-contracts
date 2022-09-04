@@ -1,0 +1,13 @@
+;; operations (constant values taken from crc32 on op message in the companion .tlb files and appear during build)
+const op::increment = 0x37491f2f;
+const op::deposit = 0x47d54391;
+const op::withdraw = 0x41836980;
+const op::transfer_ownership = 0x2da38aaf;
+
+;; errors
+const error::unknown_op = 101;
+const error::access_denied = 102;
+const error::insufficient_balance = 103;
+
+;; other
+const const::min_tons_for_storage = 10000000; ;; 0.01 TON

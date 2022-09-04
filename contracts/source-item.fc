@@ -1,0 +1,86 @@
+;;
+;;  TON NFT Item Smart Contract
+;;
+
+{-
+
+    NOTE that this tokens can be transferred within the same workchain.
+
+    This is suitable for most tokens, if you need tokens transferable between workchains there are two solutions:
+
+    1) use more expensive but universal function to calculate message forward fee for arbitrary destination (see `misc/forward-fee-calc.cs`)
+
+    2) use token holder proxies in target workchain (that way even 'non-universal' token can be used from any workchain)
+
+-}
+
+#pragma version >=0.2.0;
+#include "imports/stdlib.fc";
+
+int min_tons_for_storage() asm "50000000 PUSHINT"; ;; 0.05 TON
+
+;;
+;;  Storage
+;;
+;;  uint64 index
+;;  MsgAddressInt collection_address
+;;  cell content
+;;
+
+(int, int, slice, cell) load_data() {
+    slice ds = get_data().begin_parse();
+    var (index, collection_address) = (ds~load_uint(256), ds~load_msg_addr());
+    if (ds.slice_refs() > 0) {
+      return (-1, index, collection_address, ds~load_ref());
+    } else {
+      return (0, index, collection_address, null()); ;; nft not initialized yet
+    }
+}
+
+() store_data(int index, slice collection_address, cell content) impure {
+    set_data(
+        begin_cell()
+            .store_uint(index, 256)
+            .store_slice(collection_address)
+            .store_ref(content)
+            .end_cell()
+    );
+}
+
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    if (in_msg_body.slice_empty?()) { ;; ignore empty messages
+        return ();
+    }
+
+    slice cs = in_msg_full.begin_parse();
+    int flags = cs~load_uint(4);
+
+    if (flags & 1) { ;; ignore all bounced messages
+        return ();
+    }
+    slice sender_address = cs~load_msg_addr();
+
+    cs~load_msg_addr(); ;; skip dst
+    cs~load_coins(); ;; skip value
+    cs~skip_bits(1); ;; skip extracurrency collection
+    cs~load_coins(); ;; skip ihr_fee
+    int fwd_fee = cs~load_coins(); ;; we use message fwd_fee for estimation of forward_payload costs
+
+    (int init?, int index, slice collection_address, cell content) = load_data();
+    if (~ init?) {
+      throw_unless(405, equal_slices(collection_address, sender_address));
+      store_data(index, collection_address, in_msg_body~load_ref());
+      return ();
+    }
+
+    throw(0xffff);
+}
+
+;;
+;;  GET Methods
+;;
+
+(int, int, slice, cell) get_nft_data() method_id {
+  (int init?, int index, slice collection_address, cell content) = load_data();
+  return (init?, index, collection_address,  content);
+}
