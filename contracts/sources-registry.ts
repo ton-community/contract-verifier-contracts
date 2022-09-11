@@ -3,7 +3,6 @@ import { Cell, beginCell, Address } from "ton";
 import { Sha256 } from "@aws-crypto/sha256-js";
 
 import { hex as sourceItemHex } from "../build/source-item.compiled.json";
-import { randomAddress } from "../test/helpers";
 
 export function prepareKey(verifierId: string, codeCell: string) {
   const hash = new Sha256();
@@ -65,9 +64,5 @@ export function deploySource(verifierId: string, codeCellHash: string, jsonURL: 
 }
 
 export function changeOwner(newOwner: Address): Cell {
-  return beginCell()
-    .storeUint(0x3, 32)
-    .storeUint(0, 64)
-    .storeAddress(newOwner)
-    .endCell();
+  return beginCell().storeUint(0x3, 32).storeUint(0, 64).storeAddress(newOwner).endCell();
 }

@@ -70,7 +70,8 @@ slice calculate_nft_item_address(int wc, cell state_init) {
   ;; TODO - owner should be verifier registry
   throw_unless(401, equal_slices(sender_address, owner_address));
   
-  if (op == 1) { ;; deploy new nft
+  if (op == 1) { ;; deploy new nft 
+    ;; TODO -> should value validation happen here? there should be some amount passed on to the item
     int item_index = in_msg_body~load_uint(256);
     ~dump item_index;
     deploy_nft_item(item_index, nft_item_code, in_msg_body~load_ref());

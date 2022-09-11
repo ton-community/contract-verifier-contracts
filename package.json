@@ -47,6 +47,8 @@
   },
   "dependencies": {
     "@aws-crypto/sha256-js": "^2.0.1",
-    "semver": "^7.3.7"
+    "semver": "^7.3.7",
+    "ton-tvm-bus": "^0.0.9",
+    "tweetnacl": "^1.0.3"
   }
 }
