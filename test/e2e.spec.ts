@@ -37,7 +37,7 @@ describe("E2E", () => {
     tvmBus.registerContract(sourceRegistryContract);
   });
 
-  it("does the thing", async () => {
+  it("Deploys a source item contract", async () => {
     tvmBus.registerCode(new SourceItem()); // TODO?
     console.log(Array.from(tvmBus.pool.entries()).map(([k, x]) => `${x.constructor.name}:${k}`));
 
