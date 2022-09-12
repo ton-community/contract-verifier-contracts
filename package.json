@@ -26,8 +26,8 @@
     "mocha": "^9.1.3",
     "prando": "^6.0.1",
     "prettier": "^2.6.2",
-    "ton": "^9.6.3",
-    "ton-contract-executor": "^0.4.8",
+    "ton": "^12.1.2",
+    "ton-contract-executor": "^0.5.2",
     "ton-crypto": "^3.1.0",
     "ts-node": "^10.4.0",
     "typescript": "^4.5.4"

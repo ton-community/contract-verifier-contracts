@@ -47,7 +47,7 @@ slice calculate_nft_item_address(int wc, cell state_init) {
             .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
             .store_ref(state_init)
             .store_ref(nft_content);
-  send_raw_message(msg.end_cell(), 1); ;; pay transfer fees separately, revert on errors
+  send_raw_message(msg.end_cell(), 1); ;; TODO 64 pay transfer fees separately, revert on errors
 }
 
 () recv_internal(cell in_msg_full, slice in_msg_body) impure {
@@ -66,6 +66,14 @@ slice calculate_nft_item_address(int wc, cell state_init) {
   int query_id = in_msg_body~load_uint(64);
 
   var (owner_address, nft_item_code) = load_data();
+
+  var (x, x2) = parse_std_addr(owner_address);
+  var (y, y2) = parse_std_addr(sender_address);
+
+  ~dump x;
+  ~dump x2;
+  ~dump y;
+  ~dump y2;
 
   ;; TODO - owner should be verifier registry
   throw_unless(401, equal_slices(sender_address, owner_address));

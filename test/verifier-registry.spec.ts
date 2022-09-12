@@ -13,6 +13,10 @@ import { internalMessage, randomAddress } from "./helpers";
 import { hex as verifierRegistryHex } from "../build/verifier-registry.compiled.json";
 import { makeContract } from "./makeContract";
 
+export function timeUnitTimeStamp(offsetMinute: number) {
+  return Math.floor(Date.now() / 1000 + offsetMinute * 60);
+}
+
 describe("Verifier Registry", () => {
   let verifierRegistryContract: { contract: SmartContract; address: Address };
   const kp = nacl.sign.keyPair();
@@ -23,7 +27,6 @@ describe("Verifier Registry", () => {
       verifierRegistryHex,
       verifierRegistry.data({
         publicKey: Buffer.from(kp.publicKey),
-        sourcesRegistry: sourcesRegistryAddress,
       })
     );
   });
@@ -33,6 +36,8 @@ describe("Verifier Registry", () => {
       internalMessage({
         body: verifierRegistry.sendMessage(
           beginCell().storeUint(1, 1).endCell(),
+          sourcesRegistryAddress,
+          timeUnitTimeStamp(0),
           Buffer.alloc(64, "0")
         ),
       })
@@ -44,7 +49,12 @@ describe("Verifier Registry", () => {
   it("Refuses to send an empty message", async () => {
     const send = await verifierRegistryContract.contract.sendInternalMessage(
       internalMessage({
-        body: verifierRegistry.sendMessage(beginCell().endCell(), Buffer.alloc(64, "1")),
+        body: verifierRegistry.sendMessage(
+          beginCell().endCell(),
+          sourcesRegistryAddress,
+          timeUnitTimeStamp(0),
+          Buffer.alloc(64, "1")
+        ),
       })
     );
 
@@ -52,29 +62,47 @@ describe("Verifier Registry", () => {
     expect(send.exit_code).to.equal(998);
   });
 
-  it("Sends a message to the sources registry contract", async () => {
-    const msg = beginCell().storeUint(2, 4).endCell();
+  it("Refuses to send a message older than 30 minutes", async () => {
+    const send = await verifierRegistryContract.contract.sendInternalMessage(
+      internalMessage({
+        body: verifierRegistry.sendMessage(
+          beginCell().endCell(),
+          sourcesRegistryAddress,
+          timeUnitTimeStamp(-31),
+          Buffer.alloc(64, "1")
+        ),
+      })
+    );
+
+    expect(send.exit_code).to.equal(997);
+  });
+
+  it("Sends a message to the specified contract", async () => {
+    const msg = beginCell().storeUint(2, 1023).endCell();
 
     const sig = nacl.sign.detached(msg.hash(), kp.secretKey);
     const send = await verifierRegistryContract.contract.sendInternalMessage(
       internalMessage({
-        body: verifierRegistry.sendMessage(msg, Buffer.from(sig)),
+        body: verifierRegistry.sendMessage(
+          msg,
+          randomAddress("myaddr"),
+          timeUnitTimeStamp(0),
+          Buffer.from(sig)
+        ),
       })
     );
 
-    expect(send.type).to.equal("success");
     expect(send.exit_code).to.equal(0);
+    expect(send.type).to.equal("success");
 
     const messageToSourcesReg = (send.actionList[0] as SendMsgAction).message;
 
     // Message is sent to sources registry
     expect(messageToSourcesReg.info.dest!.toFriendly()).to.equal(
-      sourcesRegistryAddress.toFriendly()
+      randomAddress("myaddr").toFriendly()
     );
 
     // Original message is forwarded as-is
-    expect(messageToSourcesReg.body.beginParse().readRef().toCell().hash().toString()).to.equal(
-      msg.hash().toString()
-    );
+    expect(messageToSourcesReg.body.hash().toString()).to.equal(msg.hash().toString());
   });
 });
