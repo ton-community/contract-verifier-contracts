@@ -41,61 +41,62 @@ describe("E2E", () => {
     tvmBus.registerCode(new SourceItem()); // TODO?
   });
 
-  it("Updates a source item contract's data", async () => {
-    throw "Not implemented";
+  it("Cannot update a source item contract's data", async () => {
+    const ml = await deployFakeSource(verifierRegistryContract, kp);
+    
+    const messageList2 = await deployFakeSource(verifierRegistryContract, kp, "http://changed.com");
+    console.log("ALSKDNAKSLD", messageList2)
+
+    const url = await readSourceItemContent(
+      messageList2[messageList2.length - 1].contractImpl as SourceItem
+    );
+
+
+    expect(url).to.equal("http://myurl.com");
+    console.log(Array.from(tvmBus.pool.entries()).map(([k, x]) => `${x.constructor.name}:${k}`));
   });
 
   it("Modifies the owner and is able to deploy a source item contract", async () => {
-    const msg = sourcesRegistry.deploySource(VERIFIER_ID, "XXX123", "http://myurl.com");
-
     const alternativeKp = nacl.sign.keyPair.fromSeed(new Uint8Array(32).fill(1));
     const alternativeVerifierRegistryContract = await VerifierRegistry.create(alternativeKp);
-    tvmBus.registerContract(alternativeVerifierRegistryContract);
-    const sig = nacl.sign.detached(msg.hash(), alternativeKp.secretKey);
 
     const changeOwnerMsg = sourcesRegistry.changeOwner(
       alternativeVerifierRegistryContract.address!
     );
 
-    const messageList1 = await tvmBus.broadcast(
+    await tvmBus.broadcast(
       internalMessage({
         body: verifierRegistry.sendMessage(
           changeOwnerMsg,
           sourceRegistryContract.address!,
           timeUnitTimeStamp(0),
-          Buffer.from(nacl.sign.detached(changeOwnerMsg.hash(), alternativeKp.secretKey))
+          Buffer.from(nacl.sign.detached(changeOwnerMsg.hash(), kp.secretKey))
         ),
-        to: sourceRegistryContract.address!,
+        to: verifierRegistryContract.address!,
       })
     );
 
-    console.log(messageList1);
+    tvmBus.registerContract(alternativeVerifierRegistryContract);
+    console.log(Array.from(tvmBus.pool.entries()).map(([k, x]) => `${x.constructor.name}:${k}`));
 
-    const messageList = await tvmBus.broadcast(
-      internalMessage({
-        body: verifierRegistry.sendMessage(
-          msg,
-          sourceRegistryContract.address!,
-          timeUnitTimeStamp(0),
-          Buffer.from(sig)
-        ),
-        to: alternativeVerifierRegistryContract.address!,
-      })
-    );
+    const messageList = await deployFakeSource(alternativeVerifierRegistryContract, alternativeKp);
 
-    const nftData = await (
+    const url = await readSourceItemContent(
       messageList[messageList.length - 1].contractImpl as SourceItem
-    ).getData();
-    expect(nftData.beginParse().readRemainingBytes().toString("ascii")).to.equal(
-      "http://myurl.com"
     );
+
+    expect(url).to.equal("http://myurl.com");
   });
 
-  it("Deploys a source item contract", async () => {
-    const msg = sourcesRegistry.deploySource(VERIFIER_ID, "XXX123", "http://myurl.com");
+  async function deployFakeSource(
+    verifierRegistryContract: VerifierRegistry,
+    kp: nacl.SignKeyPair,
+    url = "http://myurl.com"
+  ) {
+    const msg = sourcesRegistry.deploySource(VERIFIER_ID, "XXX123", url);
     const sig = nacl.sign.detached(msg.hash(), kp.secretKey);
 
-    const messageList = await tvmBus.broadcast(
+    return await tvmBus.broadcast(
       internalMessage({
         body: verifierRegistry.sendMessage(
           msg,
@@ -106,13 +107,21 @@ describe("E2E", () => {
         to: verifierRegistryContract.address!,
       })
     );
+  }
 
-    const nftData = await (
+  async function readSourceItemContent(sourceItem: SourceItem): Promise<string> {
+    const nftData = await sourceItem.getData();
+    return nftData.beginParse().readRemainingBytes().toString("ascii");
+  }
+
+  it("Deploys a source item contract", async () => {
+    const messageList = await deployFakeSource(verifierRegistryContract, kp);
+
+    const url = await readSourceItemContent(
       messageList[messageList.length - 1].contractImpl as SourceItem
-    ).getData();
-    expect(nftData.beginParse().readRemainingBytes().toString("ascii")).to.equal(
-      "http://myurl.com"
     );
+
+    expect(url).to.equal("http://myurl.com");
 
     console.log(Array.from(tvmBus.pool.entries()).map(([k, x]) => `${x.constructor.name}:${k}`));
   });

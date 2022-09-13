@@ -72,6 +72,12 @@ slice calculate_nft_item_address(int wc, cell state_init) {
 
   var (owner_address, nft_item_code) = load_data();
 
+  var (_, x) = parse_std_addr(sender_address);
+  var (_, y) = parse_std_addr(owner_address);
+
+  ~dump x;
+  ~dump y;
+
   throw_unless(error::access_denied, equal_slices(sender_address, owner_address));
   
   if (op == op::deploy_new_nft) {

@@ -18,9 +18,8 @@ export class SourceItem implements iDeployableContract, iTvmBusContract {
     tvmBus: TvmBus
   ): Promise<iTvmBusContract> {
     const si = new SourceItem();
-    const c = await SmartContract.fromCell(code, data);
+    const c = await SmartContract.fromCell(code, data, { debug: true });
 
-    console.log(initMessage);
     si.address = initMessage.to;
     si.contract = c;
     c.setC7Config({ myself: si.address }); // todo balance
@@ -64,6 +63,6 @@ export class SourceItem implements iDeployableContract, iTvmBusContract {
 
   async getData(): Promise<Cell> {
     const res = await this.contract!.invokeGetMethod("get_nft_data", []);
-    return res.result[3] as Cell
+    return res.result[3] as Cell;
   }
 }
