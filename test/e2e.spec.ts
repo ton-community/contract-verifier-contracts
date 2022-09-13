@@ -29,6 +29,9 @@ describe("E2E", () => {
   let tvmBus: TvmBus;
   const kp = nacl.sign.keyPair.fromSeed(new Uint8Array(32));
 
+  const debugTvmBusPool = () =>
+    console.log(Array.from(tvmBus.pool.entries()).map(([k, x]) => `${x.constructor.name}:${k}`));
+
   beforeEach(async () => {
     tvmBus = new TvmBus();
 
@@ -44,14 +47,13 @@ describe("E2E", () => {
   it("Cannot update an existing source item contract's data", async () => {
     await deployFakeSource(verifierRegistryContract, kp);
 
-    const messageList2 = await deployFakeSource(verifierRegistryContract, kp, "http://changed.com");
+    const messageList = await deployFakeSource(verifierRegistryContract, kp, "http://changed.com");
 
     const url = await readSourceItemContent(
-      messageList2[messageList2.length - 1].contractImpl as SourceItem
+      messageList[messageList.length - 1].contractImpl as SourceItem
     );
 
     expect(url).to.equal("http://myurl.com");
-    console.log(Array.from(tvmBus.pool.entries()).map(([k, x]) => `${x.constructor.name}:${k}`));
   });
 
   it("Modifies the owner and is able to deploy a source item contract", async () => {
@@ -75,7 +77,6 @@ describe("E2E", () => {
     );
 
     tvmBus.registerContract(alternativeVerifierRegistryContract);
-    console.log(Array.from(tvmBus.pool.entries()).map(([k, x]) => `${x.constructor.name}:${k}`));
 
     const messageList = await deployFakeSource(alternativeVerifierRegistryContract, alternativeKp);
 
@@ -121,6 +122,6 @@ describe("E2E", () => {
 
     expect(url).to.equal("http://myurl.com");
 
-    console.log(Array.from(tvmBus.pool.entries()).map(([k, x]) => `${x.constructor.name}:${k}`));
+    // debugTvmBusPool();
   });
 });
