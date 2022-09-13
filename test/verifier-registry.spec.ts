@@ -19,7 +19,15 @@ export function timeUnitTimeStamp(offsetMinute: number) {
 
 describe("Verifier Registry", () => {
   let verifierRegistryContract: { contract: SmartContract; address: Address };
-  const kp = nacl.sign.keyPair();
+  const kp = nacl.sign.keyPair.fromSecretKey(
+    new Uint8Array(
+      Buffer.from(
+        "z2Wkf2sWS8arwVLSh+uH6FMA6uiIudDS/pyfPjWkVgPcMGPrkPwJL5re6dcdBXDpGkxzs2xt8fwDNd8evQ9FFw==",
+        "base64"
+      )
+    )
+  );
+
   const sourcesRegistryAddress = randomAddress("sources-reg");
 
   beforeEach(async () => {

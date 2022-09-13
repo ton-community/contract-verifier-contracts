@@ -10,7 +10,7 @@ import { internalMessage, randomAddress } from "./helpers";
 
 import { hex as sourceRegistryHex } from "../build/sources-registry.compiled.json";
 import { hex as sourceItemHex } from "../build/source-item.compiled.json";
-import { data, keyToAddress } from "../contracts/sources-registry";
+import { data, keyToAddress, keyToIntString, prepareKey } from "../contracts/sources-registry";
 
 const VERIFIER_ID = "myverifier.com";
 const specs = [
@@ -85,6 +85,24 @@ describe("Sources", () => {
           specs[0].jsonURL
         ),
       })
+    );
+
+    const childFromChain = await sourceRegistryContract.contract.invokeGetMethod(
+      "get_nft_address_by_index",
+      [
+        {
+          type: "int",
+          value: keyToIntString(prepareKey(specs[0].verifier, specs[0].codeCellHash)),
+        },
+      ]
+    );
+
+    expect((childFromChain.result[0] as Slice).readAddress()?.toFriendly()).to.equal(
+      keyToAddress(
+        specs[0].verifier,
+        specs[0].codeCellHash,
+        sourceRegistryContract.address
+      ).toFriendly()
     );
 
     expect((send.actionList[0] as SendMsgAction).message.info.dest?.toFriendly()).to.equal(

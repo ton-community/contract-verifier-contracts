@@ -1,13 +1,17 @@
-;; NFT collection smart contract
+;; Sources collection smart contract (based on nft collection)
 
 ;; storage scheme
 ;; storage#_ owner_address:MsgAddress
-;;           ^[collection_content:^Cell] ;; TODO square brackets?
 ;;           nft_item_code:^Cell
 ;;           = Storage;
 #pragma version >=0.2.0;
 #include "imports/stdlib.fc";
 #include "imports/params.fc";
+
+const int op::deploy_new_nft = 1;
+const int op::change_owner = 3;
+const int error::access_denied = 401;
+const int error::unknown_op = 0xffff;
 
 (slice, cell) load_data() inline {
   var ds = get_data().begin_parse();
@@ -37,17 +41,18 @@ slice calculate_nft_item_address(int wc, cell state_init) {
                      .begin_parse();
 }
 
+;; TODO what amount should we validate for the transfer?
 () deploy_nft_item(int item_index, cell nft_item_code, cell nft_content) impure {
   cell state_init = calculate_nft_item_state_init(item_index, nft_item_code);
   slice nft_address = calculate_nft_item_address(workchain(), state_init);
   var msg = begin_cell()
             .store_uint(0x18, 6)
             .store_slice(nft_address)
-            .store_coins(0) ;; TODO?
+            .store_coins(0)
             .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
             .store_ref(state_init)
             .store_ref(nft_content);
-  send_raw_message(msg.end_cell(), 1); ;; TODO 64 pay transfer fees separately, revert on errors
+  send_raw_message(msg.end_cell(), 64);
 }
 
 () recv_internal(cell in_msg_full, slice in_msg_body) impure {
@@ -67,32 +72,23 @@ slice calculate_nft_item_address(int wc, cell state_init) {
 
   var (owner_address, nft_item_code) = load_data();
 
-  var (x, x2) = parse_std_addr(owner_address);
-  var (y, y2) = parse_std_addr(sender_address);
-
-  ~dump x;
-  ~dump x2;
-  ~dump y;
-  ~dump y2;
-
-  ;; TODO - owner should be verifier registry
-  throw_unless(401, equal_slices(sender_address, owner_address));
+  throw_unless(error::access_denied, equal_slices(sender_address, owner_address));
   
-  if (op == 1) { ;; deploy new nft 
-    ;; TODO -> should value validation happen here? there should be some amount passed on to the item
+  if (op == op::deploy_new_nft) {
     int item_index = in_msg_body~load_uint(256);
-    ~dump item_index;
-    deploy_nft_item(item_index, nft_item_code, in_msg_body~load_ref());
+    cell nft_content = in_msg_body~load_ref();
+    deploy_nft_item(item_index, nft_item_code, nft_content);
     return ();
   }
 
   ;; TODO op codes => CRC?
-  if (op == 3) { ;; change owner
+  if (op == op::change_owner) {
     slice new_owner = in_msg_body~load_msg_addr();
     save_data(new_owner, nft_item_code);
     return ();
   }
-  throw(0xffff);
+
+  throw(error::unknown_op);
 }
 
 ;; Get methods
