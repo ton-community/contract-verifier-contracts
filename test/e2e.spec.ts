@@ -41,16 +41,14 @@ describe("E2E", () => {
     tvmBus.registerCode(new SourceItem()); // TODO?
   });
 
-  it("Cannot update a source item contract's data", async () => {
-    const ml = await deployFakeSource(verifierRegistryContract, kp);
-    
+  it("Cannot update an existing source item contract's data", async () => {
+    await deployFakeSource(verifierRegistryContract, kp);
+
     const messageList2 = await deployFakeSource(verifierRegistryContract, kp, "http://changed.com");
-    console.log("ALSKDNAKSLD", messageList2)
 
     const url = await readSourceItemContent(
       messageList2[messageList2.length - 1].contractImpl as SourceItem
     );
-
 
     expect(url).to.equal("http://myurl.com");
     console.log(Array.from(tvmBus.pool.entries()).map(([k, x]) => `${x.constructor.name}:${k}`));
