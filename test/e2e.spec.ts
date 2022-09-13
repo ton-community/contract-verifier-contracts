@@ -21,13 +21,13 @@ import { VerifierRegistry } from "./verifier-registry";
 import { SourceItem } from "./source-item";
 import { timeUnitTimeStamp } from "./verifier-registry.spec";
 
-const VERIFIER_ID = "myverifier.com";
+const VERIFIER_ID = 12;
 
 describe("E2E", () => {
   let sourceRegistryContract: SourcesRegistry;
   let verifierRegistryContract: VerifierRegistry;
   let tvmBus: TvmBus;
-  const kp = nacl.sign.keyPair.fromSeed(new Uint8Array(32));
+  const kp = nacl.sign.keyPair.fromSeed(new Uint8Array(32).fill(0));
 
   const debugTvmBusPool = () =>
     console.log(Array.from(tvmBus.pool.entries()).map(([k, x]) => `${x.constructor.name}:${k}`));

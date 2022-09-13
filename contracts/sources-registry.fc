@@ -28,8 +28,8 @@ const int error::unknown_op = 0xffff;
     .end_cell());
 }
 
-cell calculate_nft_item_state_init(int item_index, cell nft_item_code) {
-  cell data = begin_cell().store_uint(item_index, 256).store_slice(my_address()).end_cell();
+cell calculate_nft_item_state_init(int verifier_id, int verified_code_cell_hash, cell nft_item_code) {
+  cell data = begin_cell().store_uint(verifier_id, 8).store_uint(verified_code_cell_hash, 256).store_slice(my_address()).end_cell();
   return begin_cell().store_uint(0, 2).store_dict(nft_item_code).store_dict(data).store_uint(0, 1).end_cell();
 }
 
@@ -42,8 +42,8 @@ slice calculate_nft_item_address(int wc, cell state_init) {
 }
 
 ;; TODO what amount should we validate for the transfer?
-() deploy_nft_item(int item_index, cell nft_item_code, cell nft_content) impure {
-  cell state_init = calculate_nft_item_state_init(item_index, nft_item_code);
+() deploy_nft_item(int verifier_id, int verified_code_cell_hash, cell nft_item_code, cell nft_content) impure {
+  cell state_init = calculate_nft_item_state_init(verifier_id, verified_code_cell_hash, nft_item_code);
   slice nft_address = calculate_nft_item_address(workchain(), state_init);
   var msg = begin_cell()
             .store_uint(0x18, 6)
@@ -72,24 +72,21 @@ slice calculate_nft_item_address(int wc, cell state_init) {
 
   var (owner_address, nft_item_code) = load_data();
 
-  var (_, x) = parse_std_addr(sender_address);
-  var (_, y) = parse_std_addr(owner_address);
-
-  ~dump x;
-  ~dump y;
-
   throw_unless(error::access_denied, equal_slices(sender_address, owner_address));
   
   if (op == op::deploy_new_nft) {
-    int item_index = in_msg_body~load_uint(256);
+    int verifier_id = in_msg_body~load_uint(8);
+    int verified_code_cell_hash = in_msg_body~load_uint(256);
     cell nft_content = in_msg_body~load_ref();
-    deploy_nft_item(item_index, nft_item_code, nft_content);
+    in_msg_body.end_parse();
+    deploy_nft_item(verifier_id, verified_code_cell_hash, nft_item_code, nft_content);
     return ();
   }
 
   ;; TODO op codes => CRC?
   if (op == op::change_owner) {
     slice new_owner = in_msg_body~load_msg_addr();
+    in_msg_body.end_parse();
     save_data(new_owner, nft_item_code);
     return ();
   }
@@ -98,8 +95,18 @@ slice calculate_nft_item_address(int wc, cell state_init) {
 }
 
 ;; Get methods
-slice get_nft_address_by_index(int index) method_id {
+;; slice get_nft_address_by_index(int index) method_id {
+;;   var (_, nft_item_code) = load_data();
+;;   cell state_init = calculate_nft_item_state_init(index, nft_item_code);
+;;   return calculate_nft_item_address(workchain(), state_init);
+;; }
+
+slice get_source_item_address(int verifier_id, int verified_code_cell_hash) method_id {
   var (_, nft_item_code) = load_data();
-  cell state_init = calculate_nft_item_state_init(index, nft_item_code);
+  cell state_init = calculate_nft_item_state_init(verifier_id, verified_code_cell_hash, nft_item_code);
   return calculate_nft_item_address(workchain(), state_init);
 }
+
+
+;; new b(Buffer.from("hNr6RJ+Ypph3ibojI1gHK8D3bcRSQAKl0JGLmnXS1Zk=", "base64"))
+;; 60092195959783373313562985157414939978128711222618048521181182541346861405593

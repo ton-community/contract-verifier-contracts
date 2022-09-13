@@ -49,11 +49,12 @@ export function data(params: { ownerAddress: Address }): Cell {
 }
 
 // message encoders for all ops (see contracts/imports/constants.fc for consts)
-export function deploySource(verifierId: string, codeCellHash: string, jsonURL: string): Cell {
+export function deploySource(verifierId: number, codeCellHash: string, jsonURL: string): Cell {
   return beginCell()
     .storeUint(0x1, 32)
     .storeUint(0, 64)
-    .storeBuffer(prepareKey(verifierId, codeCellHash))
+    .storeUint(verifierId, 8) // TODO verifier id
+    .storeUint(new BN(Buffer.from(codeCellHash, "base64")), 256)
     .storeRef(
       beginCell()
         // TODO support snakes
