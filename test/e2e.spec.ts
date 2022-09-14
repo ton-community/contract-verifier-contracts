@@ -70,7 +70,7 @@ describe("E2E", () => {
           changeOwnerMsg,
           sourceRegistryContract.address!,
           timeUnitTimeStamp(0),
-          Buffer.from(nacl.sign.detached(changeOwnerMsg.hash(), kp.secretKey))
+          kp.secretKey
         ),
         to: verifierRegistryContract.address!,
       })
@@ -93,7 +93,6 @@ describe("E2E", () => {
     url = "http://myurl.com"
   ) {
     const msg = sourcesRegistry.deploySource(VERIFIER_ID, "XXX123", url);
-    const sig = nacl.sign.detached(msg.hash(), kp.secretKey);
 
     return await tvmBus.broadcast(
       internalMessage({
@@ -101,7 +100,7 @@ describe("E2E", () => {
           msg,
           sourceRegistryContract.address!,
           timeUnitTimeStamp(0),
-          Buffer.from(sig)
+          kp.secretKey
         ),
         to: verifierRegistryContract.address!,
       })

@@ -46,7 +46,7 @@ describe("Verifier Registry", () => {
           beginCell().storeUint(1, 1).endCell(),
           sourcesRegistryAddress,
           timeUnitTimeStamp(0),
-          Buffer.alloc(64, "0")
+          nacl.sign.keyPair().secretKey
         ),
       })
     );
@@ -61,7 +61,7 @@ describe("Verifier Registry", () => {
           beginCell().endCell(),
           sourcesRegistryAddress,
           timeUnitTimeStamp(0),
-          Buffer.alloc(64, "1")
+          kp.secretKey
         ),
       })
     );
@@ -77,7 +77,7 @@ describe("Verifier Registry", () => {
           beginCell().endCell(),
           sourcesRegistryAddress,
           timeUnitTimeStamp(-31),
-          Buffer.alloc(64, "1")
+          kp.secretKey
         ),
       })
     );
@@ -86,16 +86,42 @@ describe("Verifier Registry", () => {
   });
 
   it("Sends a message to the specified contract", async () => {
-    const msg = beginCell().storeUint(2, 1023).endCell();
+    const msg = beginCell().storeBuffer(Buffer.from("ipfs://deddy", "ascii")).endCell();
 
-    const sig = nacl.sign.detached(msg.hash(), kp.secretKey);
+    // from: addr1 => [
+    //   0,
+    //   {
+    //     pks: [pk1,pk2,pk3,...,pk10] ;; to change this a mutlisig pk is needed,
+    //     multiSigThreshold: 3
+    //   },
+    //   10k,
+    //   seqno: 0
+    // ]
+
+    /*
+    client -> sourcesBinaryData+codecell hash to backend1
+    backend1 responds with => ipfs://[sources.json], sig(ipfs://[sources.json])
+    client -> ipfs://[sources.json]+codecell hash to backend2
+    backend2 responds with => ipfs://[sources.json], sig(ipfs://[sources.json])
+    client -> ipfs://[sources.json]+codecell hash+signatures to backend3
+    backend3:
+      - reads multisig threshold from contract, sees that it == 3, uploads signatures
+      - responds with => ipfs://[sources.json], sig(ipfs://[sources.json]), ipfs://[signatures.json]
+    client -> verifier registry => ipfs://[sources.json], [sigs], ipfs://[signatures.json]
+    */
+
+    // [
+    //   signatures, // [[sig1(msg),pk1], [sig2(msg),pk2], [sig3(msg), pk3]] ;; buffer("ipfs://[sigs.json]")
+    //   msg // 162137233, buffer("ipfs://[sources.json]")
+    // ]
+
     const send = await verifierRegistryContract.contract.sendInternalMessage(
       internalMessage({
         body: verifierRegistry.sendMessage(
           msg,
           randomAddress("myaddr"),
           timeUnitTimeStamp(0),
-          Buffer.from(sig)
+          kp.secretKey
         ),
       })
     );

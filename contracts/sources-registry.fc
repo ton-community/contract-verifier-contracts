@@ -56,6 +56,7 @@ slice calculate_nft_item_address(int wc, cell state_init) {
 }
 
 () recv_internal(cell in_msg_full, slice in_msg_body) impure {
+  var x = 1;
   if (in_msg_body.slice_empty?()) { ;; ignore empty messages
     return ();
   }
@@ -73,7 +74,6 @@ slice calculate_nft_item_address(int wc, cell state_init) {
   var (owner_address, nft_item_code) = load_data();
 
   throw_unless(error::access_denied, equal_slices(sender_address, owner_address));
-  
   if (op == op::deploy_new_nft) {
     int verifier_id = in_msg_body~load_uint(8);
     int verified_code_cell_hash = in_msg_body~load_uint(256);

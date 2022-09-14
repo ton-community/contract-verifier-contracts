@@ -27,16 +27,20 @@ const int error::invalid_signature = 999;
   if (flags & 1) { ;; ignore all bounced messages
     return ();
   }
-  
-  int valid_from = in_msg_body~load_uint(32);
-  throw_if(error::expired_msg, now() > valid_from + time::thirty_min);
 
-  var signature = in_msg_body~load_bits(512);
-  var to = in_msg_body~load_msg_addr();
   (int public_key) = load_data();
-  cell message = in_msg_body~load_ref();
+
+  slice signature = in_msg_body~load_bits(512);
+  slice to = in_msg_body~load_msg_addr();
+  slice signed_msg = in_msg_body~load_ref().begin_parse();
+
+  throw_unless(error::invalid_signature, check_signature(slice_hash(signed_msg), signature, public_key));
+
+  int valid_from = signed_msg~load_uint(32);
+  throw_if(error::expired_msg, now() > valid_from + time::thirty_min);
+  
+  cell message = signed_msg~load_ref();
   throw_if(error::empty_msg, slice_empty?(message.begin_parse()));
-  throw_unless(error::invalid_signature, check_signature(cell_hash(message), signature, public_key)); ;; TODO
 
   var msg = begin_cell()
             .store_uint(0x18, 6)
@@ -45,7 +49,7 @@ const int error::invalid_signature = 999;
             .store_uint(0, 1 + 4 + 4 + 64 + 32)
             .store_uint(0, 1) ;; no stateinit
             .store_uint(1, 1) ;; msg in ref
-            .store_ref(message);
+            .store_ref(message); ;; TODO augment with signature?
   send_raw_message(msg.end_cell(), 64);
   return();
 }
