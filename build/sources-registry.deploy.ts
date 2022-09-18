@@ -3,10 +3,10 @@ import { Address, toNano, TupleSlice, WalletContract } from "ton";
 import { sendInternalMessageWithWallet } from "../test/helpers";
 
 // return the init Cell of the contract storage (according to load_data() contract method)
-// EQD63bU_HLZbfzlgtYrlHzVjuUhaC2TgVs267rUzaz14I153
+// EQCzhlfSkSi1uAnKux1nedsbm-P6S1D4EzPSOt5lhd7H_2A-
 export function initData() {
   return sourcesRegistry.data({
-    ownerAddress: Address.parse("EQC2Cqgb_OIRFLzzmSjfSyfB9iHwBT55T-NAUH5ouAo5MYgt"),
+    ownerAddress: Address.parse("EQBqM286bPWrGFO6beQY6KztC7hrc8tGE7i9PXzMM4B2FHEj"),
   });
 }
 
