@@ -4,7 +4,7 @@
 #pragma version >=0.2.0;
 #include "imports/stdlib.fc";
 
-const int time::thirty_min = 1800;
+const int time::ten_min = 600;
 const int error::expired_msg = 997;
 const int error::empty_msg = 998;
 const int error::invalid_signature = 999;
@@ -36,7 +36,7 @@ const int error::invalid_signature = 999;
   throw_unless(error::invalid_signature, check_signature(slice_hash(signed_msg), signature, public_key));
 
   int valid_from = signed_msg~load_uint(32);
-  throw_if(error::expired_msg, now() > valid_from + time::thirty_min);
+  throw_if(error::expired_msg, now() > valid_from + time::ten_min);
   
   slice to = signed_msg~load_msg_addr();
   
@@ -50,7 +50,7 @@ const int error::invalid_signature = 999;
             .store_uint(0, 1 + 4 + 4 + 64 + 32)
             .store_uint(0, 1) ;; no stateinit
             .store_uint(1, 1) ;; msg in ref
-            .store_ref(message); ;; TODO augment with signature?
+            .store_ref(message);
   send_raw_message(msg.end_cell(), 64);
   return();
 }

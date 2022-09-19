@@ -19,7 +19,7 @@ import { TvmBus } from "ton-tvm-bus";
 import { SourcesRegistry } from "./sources-registry";
 import { VerifierRegistry } from "./verifier-registry";
 import { SourceItem } from "./source-item";
-import { timeUnitTimeStamp } from "./verifier-registry.spec";
+import { timeUnixTimeStamp } from "./verifier-registry.spec";
 
 const VERIFIER_ID = 12;
 
@@ -69,7 +69,7 @@ describe("E2E", () => {
         body: verifierRegistry.sendMessage(
           changeOwnerMsg,
           sourceRegistryContract.address!,
-          timeUnitTimeStamp(0),
+          timeUnixTimeStamp(0),
           kp.secretKey
         ),
         to: verifierRegistryContract.address!,
@@ -99,7 +99,7 @@ describe("E2E", () => {
         body: verifierRegistry.sendMessage(
           msg,
           sourceRegistryContract.address!,
-          timeUnitTimeStamp(0),
+          timeUnixTimeStamp(0),
           kp.secretKey
         ),
         to: verifierRegistryContract.address!,

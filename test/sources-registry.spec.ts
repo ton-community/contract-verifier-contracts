@@ -10,12 +10,18 @@ import { internalMessage, randomAddress } from "./helpers";
 
 import { hex as sourceRegistryHex } from "../build/sources-registry.compiled.json";
 import { hex as sourceItemHex } from "../build/source-item.compiled.json";
-import { data, keyToAddress, keyToIntString, prepareKey } from "../contracts/sources-registry";
+import {
+  data,
+  keyToAddress,
+  keyToIntString,
+  prepareKey,
+  toSha256Buffer,
+} from "../contracts/sources-registry";
 
 const specs = [
   {
     codeCellHash: "E/XXoxbG124QU+iKxZtd5loHKjiEUTcdxcW+y7oT9Q4=",
-    verifier: 0,
+    verifier: "my verifier",
     jsonURL: "https://myjson.com/sources.json",
   },
 ];
@@ -23,13 +29,13 @@ const specs = [
 describe("Sources", () => {
   let sourceRegistryContract: { contract: SmartContract; address: Address };
 
-  const childAddressFromChain = async (verifier: number, codeCellHash: string) => {
+  const childAddressFromChain = async (verifier: string, codeCellHash: string) => {
     const childFromChain = await sourceRegistryContract.contract.invokeGetMethod(
       "get_source_item_address",
       [
         {
           type: "int",
-          value: new BN(verifier).toString(),
+          value: new BN(toSha256Buffer(verifier)).toString(),
         },
         {
           type: "int",
@@ -119,7 +125,7 @@ describe("Sources", () => {
 
     expect(childFromChain.toFriendly()).to.not.equal(childFromChain2.toFriendly());
   });
-  
+
   it("returns different source item addresses for different code cell hashes", async () => {
     const childFromChain = await childAddressFromChain(specs[0].verifier, specs[0].codeCellHash);
     const childFromChain2 = await childAddressFromChain(

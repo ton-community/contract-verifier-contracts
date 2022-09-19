@@ -5,7 +5,7 @@ import { sendInternalMessageWithWallet } from "../test/helpers";
 import nacl from "tweetnacl";
 import { keyToAddress } from "../contracts/sources-registry";
 
-export function timeUnitTimeStamp(offsetMinute: number) {
+export function timeUnixTimeStamp(offsetMinute: number) {
   return Math.floor(Date.now() / 1000 + offsetMinute * 60);
 }
 
@@ -69,7 +69,7 @@ export async function postDeployTest(
     body: veriferRegistry.sendMessage(
       msgCell,
       sourcesRegAddr,
-      timeUnitTimeStamp(0),
+      timeUnixTimeStamp(0),
       kp.secretKey
     ),
   });

@@ -13,7 +13,7 @@ import { internalMessage, randomAddress } from "./helpers";
 import { hex as verifierRegistryHex } from "../build/verifier-registry.compiled.json";
 import { makeContract } from "./makeContract";
 
-export function timeUnitTimeStamp(offsetMinute: number) {
+export function timeUnixTimeStamp(offsetMinute: number) {
   return Math.floor(Date.now() / 1000 + offsetMinute * 60);
 }
 
@@ -45,7 +45,7 @@ describe("Verifier Registry", () => {
         body: verifierRegistry.sendMessage(
           beginCell().storeUint(1, 1).endCell(),
           sourcesRegistryAddress,
-          timeUnitTimeStamp(0),
+          timeUnixTimeStamp(0),
           nacl.sign.keyPair().secretKey
         ),
       })
@@ -60,7 +60,7 @@ describe("Verifier Registry", () => {
         body: verifierRegistry.sendMessage(
           beginCell().endCell(),
           sourcesRegistryAddress,
-          timeUnitTimeStamp(0),
+          timeUnixTimeStamp(0),
           kp.secretKey
         ),
       })
@@ -70,13 +70,13 @@ describe("Verifier Registry", () => {
     expect(send.exit_code).to.equal(998);
   });
 
-  it("Refuses to send a message older than 30 minutes", async () => {
+  it("Refuses to send a message older than 10 minutes", async () => {
     const send = await verifierRegistryContract.contract.sendInternalMessage(
       internalMessage({
         body: verifierRegistry.sendMessage(
           beginCell().endCell(),
           sourcesRegistryAddress,
-          timeUnitTimeStamp(-31),
+          timeUnixTimeStamp(-11),
           kp.secretKey
         ),
       })
@@ -120,7 +120,7 @@ describe("Verifier Registry", () => {
         body: verifierRegistry.sendMessage(
           msg,
           randomAddress("myaddr"),
-          timeUnitTimeStamp(0),
+          timeUnixTimeStamp(0),
           kp.secretKey
         ),
       })

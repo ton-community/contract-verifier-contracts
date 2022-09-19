@@ -48,19 +48,20 @@ export function data(params: { ownerAddress: Address }): Cell {
     .endCell();
 }
 
+export const toSha256Buffer = (s: string) => {
+  const sha = new Sha256();
+  sha.update(s);
+  return Buffer.from(sha.digestSync());
+};
+
 // message encoders for all ops (see contracts/imports/constants.fc for consts)
-export function deploySource(verifierId: number, codeCellHash: string, jsonURL: string): Cell {
+export function deploySource(verifierId: string, codeCellHash: string, jsonURL: string): Cell {
   return beginCell()
     .storeUint(0x1, 32)
     .storeUint(0, 64)
-    .storeUint(verifierId, 8) // TODO verifier id
+    .storeBuffer(toSha256Buffer(verifierId))
     .storeUint(new BN(Buffer.from(codeCellHash, "base64")), 256)
-    .storeRef(
-      beginCell()
-        // TODO support snakes
-        .storeRef(beginCell().storeBuffer(Buffer.from(jsonURL)).endCell())
-        .endCell()
-    )
+    .storeRef(beginCell().storeBuffer(Buffer.from(jsonURL)).endCell()) // TODO support snakes
     .endCell();
 }
 

@@ -29,7 +29,7 @@ const int error::unknown_op = 0xffff;
 }
 
 cell calculate_nft_item_state_init(int verifier_id, int verified_code_cell_hash, cell nft_item_code) {
-  cell data = begin_cell().store_uint(verifier_id, 8).store_uint(verified_code_cell_hash, 256).store_slice(my_address()).end_cell();
+  cell data = begin_cell().store_uint(verifier_id, 256).store_uint(verified_code_cell_hash, 256).store_slice(my_address()).end_cell();
   return begin_cell().store_uint(0, 2).store_dict(nft_item_code).store_dict(data).store_uint(0, 1).end_cell();
 }
 
@@ -56,7 +56,6 @@ slice calculate_nft_item_address(int wc, cell state_init) {
 }
 
 () recv_internal(cell in_msg_full, slice in_msg_body) impure {
-  var x = 1;
   if (in_msg_body.slice_empty?()) { ;; ignore empty messages
     return ();
   }
@@ -75,7 +74,7 @@ slice calculate_nft_item_address(int wc, cell state_init) {
 
   throw_unless(error::access_denied, equal_slices(sender_address, owner_address));
   if (op == op::deploy_new_nft) {
-    int verifier_id = in_msg_body~load_uint(8);
+    int verifier_id = in_msg_body~load_uint(256);
     int verified_code_cell_hash = in_msg_body~load_uint(256);
     cell nft_content = in_msg_body~load_ref();
     in_msg_body.end_parse();
@@ -95,18 +94,8 @@ slice calculate_nft_item_address(int wc, cell state_init) {
 }
 
 ;; Get methods
-;; slice get_nft_address_by_index(int index) method_id {
-;;   var (_, nft_item_code) = load_data();
-;;   cell state_init = calculate_nft_item_state_init(index, nft_item_code);
-;;   return calculate_nft_item_address(workchain(), state_init);
-;; }
-
 slice get_source_item_address(int verifier_id, int verified_code_cell_hash) method_id {
   var (_, nft_item_code) = load_data();
   cell state_init = calculate_nft_item_state_init(verifier_id, verified_code_cell_hash, nft_item_code);
   return calculate_nft_item_address(workchain(), state_init);
 }
-
-
-;; new b(Buffer.from("hNr6RJ+Ypph3ibojI1gHK8D3bcRSQAKl0JGLmnXS1Zk=", "base64"))
-;; 60092195959783373313562985157414939978128711222618048521181182541346861405593
