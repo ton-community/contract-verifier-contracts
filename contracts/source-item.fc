@@ -1,21 +1,12 @@
 ;;
-;;  TON NFT Item Smart Contract
+;;  Source item smart contract
 ;;
-
-{-
-
-    NOTE that this tokens can be transferred within the same workchain.
-
-    This is suitable for most tokens, if you need tokens transferable between workchains there are two solutions:
-
-    1) use more expensive but universal function to calculate message forward fee for arbitrary destination (see `misc/forward-fee-calc.cs`)
-
-    2) use token holder proxies in target workchain (that way even 'non-universal' token can be used from any workchain)
-
--}
 
 #pragma version >=0.2.0;
 #include "imports/stdlib.fc";
+
+const int error::access_denied = 401;
+const int error::unknown_op = 0xffff;
 
 ;;
 ;;  Storage
@@ -68,12 +59,12 @@
 
     (int init?, int verifier_id, int verified_code_cell_hash, slice collection_address, cell content) = load_data();
     if (~ init?) {
-      throw_unless(405, equal_slices(collection_address, sender_address));
+      throw_unless(error::access_denied, equal_slices(collection_address, sender_address));
       store_data(verifier_id, verified_code_cell_hash, collection_address, begin_cell().store_slice(in_msg_body).end_cell());
       return ();
     }
 
-    throw(0xffff);
+    throw(error::unknown_op);
 }
 
 ;;

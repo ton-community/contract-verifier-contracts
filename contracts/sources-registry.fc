@@ -8,7 +8,7 @@
 #include "imports/stdlib.fc";
 #include "imports/params.fc";
 
-const int op::deploy_new_nft = 1;
+const int op::deploy_source_item = 1;
 const int op::change_owner = 3;
 const int error::access_denied = 401;
 const int error::unknown_op = 0xffff;
@@ -33,7 +33,7 @@ cell calculate_nft_item_state_init(int verifier_id, int verified_code_cell_hash,
   return begin_cell().store_uint(0, 2).store_dict(nft_item_code).store_dict(data).store_uint(0, 1).end_cell();
 }
 
-slice calculate_nft_item_address(int wc, cell state_init) {
+slice calculate_source_item_address(int wc, cell state_init) {
   return begin_cell().store_uint(4, 3)
                      .store_int(wc, 8)
                      .store_uint(cell_hash(state_init), 256)
@@ -42,9 +42,9 @@ slice calculate_nft_item_address(int wc, cell state_init) {
 }
 
 ;; TODO what amount should we validate for the transfer?
-() deploy_nft_item(int verifier_id, int verified_code_cell_hash, cell nft_item_code, cell nft_content) impure {
+() deploy_source_item(int verifier_id, int verified_code_cell_hash, cell nft_item_code, cell nft_content) impure {
   cell state_init = calculate_nft_item_state_init(verifier_id, verified_code_cell_hash, nft_item_code);
-  slice nft_address = calculate_nft_item_address(workchain(), state_init);
+  slice nft_address = calculate_source_item_address(workchain(), state_init);
   var msg = begin_cell()
             .store_uint(0x18, 6)
             .store_slice(nft_address)
@@ -73,12 +73,12 @@ slice calculate_nft_item_address(int wc, cell state_init) {
   var (owner_address, nft_item_code) = load_data();
 
   throw_unless(error::access_denied, equal_slices(sender_address, owner_address));
-  if (op == op::deploy_new_nft) {
+  if (op == op::deploy_source_item) {
     int verifier_id = in_msg_body~load_uint(256);
     int verified_code_cell_hash = in_msg_body~load_uint(256);
     cell nft_content = in_msg_body~load_ref();
     in_msg_body.end_parse();
-    deploy_nft_item(verifier_id, verified_code_cell_hash, nft_item_code, nft_content);
+    deploy_source_item(verifier_id, verified_code_cell_hash, nft_item_code, nft_content);
     return ();
   }
 
@@ -97,5 +97,5 @@ slice calculate_nft_item_address(int wc, cell state_init) {
 slice get_source_item_address(int verifier_id, int verified_code_cell_hash) method_id {
   var (_, nft_item_code) = load_data();
   cell state_init = calculate_nft_item_state_init(verifier_id, verified_code_cell_hash, nft_item_code);
-  return calculate_nft_item_address(workchain(), state_init);
+  return calculate_source_item_address(workchain(), state_init);
 }

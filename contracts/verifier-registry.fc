@@ -1,6 +1,5 @@
 ;; Simplified verifier registry 
 ;; passes on messages signed by a public key to sources registry
-
 #pragma version >=0.2.0;
 #include "imports/stdlib.fc";
 
