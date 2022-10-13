@@ -3,7 +3,7 @@ import chaiBN from "chai-bn";
 import BN from "bn.js";
 chai.use(chaiBN(BN));
 
-import { Address, Cell, contractAddress, Slice } from "ton";
+import { Address, Cell, contractAddress, Slice, beginCell } from 'ton';
 import { OutAction, SendMsgAction, SmartContract } from "ton-contract-executor";
 import * as sourcesRegistry from "../contracts/sources-registry";
 import { internalMessage, randomAddress } from "./helpers";
@@ -49,7 +49,8 @@ describe("Sources", () => {
   beforeEach(async () => {
     const codeCell = Cell.fromBoc(sourceRegistryHex)[0]; // code cell from build output;
     const dataCell = sourcesRegistry.data({
-      ownerAddress: randomAddress("owner"),
+      admin: randomAddress("admin"),
+      verifierRegistryAddress: randomAddress("verifierReg"),
     });
 
     const ca = contractAddress({
@@ -69,7 +70,7 @@ describe("Sources", () => {
   it("should deploy a source contract item", async () => {
     const send = await sourceRegistryContract.contract.sendInternalMessage(
       internalMessage({
-        from: randomAddress("owner"),
+        from: randomAddress("verifierReg"),
         body: sourcesRegistry.deploySource(
           specs[0].verifier,
           specs[0].codeCellHash,
@@ -85,7 +86,7 @@ describe("Sources", () => {
       msg.message.init!.data!
     );
 
-    expect(await parseUrlFromGetNftData(sourceItemContract)).to.be.null;
+    expect(await parseUrlFromGetSourceItemData(sourceItemContract)).to.be.null;
 
     await sourceItemContract.sendInternalMessage(
       internalMessage({
@@ -94,13 +95,13 @@ describe("Sources", () => {
       })
     );
 
-    expect(await parseUrlFromGetNftData(sourceItemContract)).to.equal(specs[0].jsonURL);
+    expect(await parseUrlFromGetSourceItemData(sourceItemContract)).to.equal(specs[0].jsonURL);
   });
 
   it("returns source item address", async () => {
     const send = await sourceRegistryContract.contract.sendInternalMessage(
       internalMessage({
-        from: randomAddress("owner"),
+        from: randomAddress("verifierReg"),
         body: sourcesRegistry.deploySource(
           specs[0].verifier,
           specs[0].codeCellHash,
@@ -136,10 +137,10 @@ describe("Sources", () => {
     expect(childFromChain.toFriendly()).to.not.equal(childFromChain2.toFriendly());
   });
 
-  it("disallows a non-owner to deploy a source item", async () => {
+  it("disallows a non-verifier reg to deploy a source item", async () => {
     const send = await sourceRegistryContract.contract.sendInternalMessage(
       internalMessage({
-        from: randomAddress("notowner"),
+        from: randomAddress("not_verifier_reg"),
         body: sourcesRegistry.deploySource(
           specs[0].verifier,
           specs[0].codeCellHash,
@@ -151,17 +152,21 @@ describe("Sources", () => {
     expect(send.exit_code).to.equal(401);
   });
 
-  it("changes the owner", async () => {
+  it("changes the verifier registry", async () => {
     await sourceRegistryContract.contract.sendInternalMessage(
       internalMessage({
-        from: randomAddress("owner"),
-        body: sourcesRegistry.changeOwner(randomAddress("newowner")),
+        from: randomAddress("admin"),
+        body: sourcesRegistry.changeVerifierRegistry(randomAddress("newVerifierRegistry")),
       })
     );
 
+    const res = await sourceRegistryContract.contract.invokeGetMethod("get_verifier_registry_address", []);
+
+    expect((res.result[0] as Slice).readAddress()?.toFriendly()).to.equal(randomAddress("newVerifierRegistry").toFriendly());
+
     const send = await sourceRegistryContract.contract.sendInternalMessage(
       internalMessage({
-        from: randomAddress("newowner"),
+        from: randomAddress("newVerifierRegistry"),
         body: sourcesRegistry.deploySource(
           specs[0].verifier,
           specs[0].codeCellHash,
@@ -174,11 +179,59 @@ describe("Sources", () => {
     expect(send.exit_code).to.equal(0);
   });
 
-  it("disallows a non-owner to change the owner", async () => {
+  it("disallows a non admin to change the verifier registry", async () => {
     const send = await sourceRegistryContract.contract.sendInternalMessage(
       internalMessage({
-        from: randomAddress("notowner"),
-        body: sourcesRegistry.changeOwner(randomAddress("newowner")),
+        from: randomAddress("notadmin"),
+        body: sourcesRegistry.changeVerifierRegistry(randomAddress("newadmin")),
+      })
+    );
+
+    expect(send.exit_code).to.equal(401);
+  });
+  
+  it("allows the admin to change admin", async () => {
+    const send = await sourceRegistryContract.contract.sendInternalMessage(
+      internalMessage({
+        from: randomAddress("admin"),
+        body: sourcesRegistry.changeAdmin(randomAddress("newadmin")),
+      })
+    );
+
+    const res = await sourceRegistryContract.contract.invokeGetMethod("get_admin_address", []);
+
+    expect((res.result[0] as Slice).readAddress()?.toFriendly()).to.equal(randomAddress("newadmin").toFriendly());
+  });
+
+  it("disallows a non admin to change the admin", async () => {
+    const send = await sourceRegistryContract.contract.sendInternalMessage(
+      internalMessage({
+        from: randomAddress("notadmin"),
+        body: sourcesRegistry.changeAdmin(randomAddress("newadmin")),
+      })
+    );
+
+    expect(send.exit_code).to.equal(401);
+  });
+  
+  it("allows the admin to set code", async () => {
+    const newCodeCell = beginCell().storeBit(1).endCell();
+
+    const send = await sourceRegistryContract.contract.sendInternalMessage(
+      internalMessage({
+        from: randomAddress("admin"),
+        body: sourcesRegistry.changeCode(newCodeCell),
+      })
+    );
+
+    expect(sourceRegistryContract.contract.codeCell.hash().toString()).to.equal(newCodeCell.hash().toString());
+  });
+
+  it("disallows a non admin to set code", async () => {
+    const send = await sourceRegistryContract.contract.sendInternalMessage(
+      internalMessage({
+        from: randomAddress("notadmin"),
+        body: sourcesRegistry.changeCode(new Cell()),
       })
     );
 
@@ -186,8 +239,8 @@ describe("Sources", () => {
   });
 });
 
-async function parseUrlFromGetNftData(contract: SmartContract): Promise<string | null> {
-  const res = await contract.invokeGetMethod("get_nft_data", []);
+async function parseUrlFromGetSourceItemData(contract: SmartContract): Promise<string | null> {
+  const res = await contract.invokeGetMethod("get_source_item_data", []);
   if (res.result[4] !== null) {
     return (res.result[4] as Cell).beginParse().readRemainingBytes().toString("ascii");
   }

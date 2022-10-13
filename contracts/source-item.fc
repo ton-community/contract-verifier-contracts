@@ -70,7 +70,7 @@ const int error::unknown_op = 0xffff;
 ;;
 ;;  GET Methods
 ;;
-(int, int, int, slice, cell) get_nft_data() method_id {
+(int, int, int, slice, cell) get_source_item_data() method_id {
   (int init?, int verifier_id, int verified_code_cell_hash, slice collection_address, cell content) = load_data();
   return (init?, verifier_id, verified_code_cell_hash, collection_address, content);
 }

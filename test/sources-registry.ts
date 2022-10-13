@@ -11,11 +11,12 @@ export class SourcesRegistry implements iTvmBusContract {
   address?: Address;
   initMessageResultRaw?: ExecutionResult | undefined;
 
-  static async create(ownerAddress: Address) {
+  static async create(verifierRegistryAddress: Address, admin: Address) {
     const sourcesRegistryContract = await makeContract(
       sourcesRegistryHex,
       sourcesRegistry.data({
-        ownerAddress: ownerAddress,
+        admin: admin,
+        verifierRegistryAddress: verifierRegistryAddress,
       })
     );
 

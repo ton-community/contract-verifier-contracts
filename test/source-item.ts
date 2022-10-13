@@ -48,7 +48,7 @@ export class SourceItem implements iDeployableContract, iTvmBusContract {
   }
 
   async getData(): Promise<Cell> {
-    const res = await this.contract!.invokeGetMethod("get_nft_data", []);
+    const res = await this.contract!.invokeGetMethod("get_source_item_data", []);
     return res.result[4] as Cell;
   }
 }
