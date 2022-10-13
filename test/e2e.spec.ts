@@ -3,31 +3,26 @@ import chaiBN from "chai-bn";
 import BN from "bn.js";
 chai.use(chaiBN(BN));
 
-import { Address, beginCell, Cell, contractAddress, Slice } from "ton";
-import { OutAction, SendMsgAction, SmartContract } from "ton-contract-executor";
 import * as sourcesRegistry from "../contracts/sources-registry";
 import * as verifierRegistry from "../contracts/verifier-registry";
-import { internalMessage, randomAddress } from "./helpers";
+import { internalMessage } from "./helpers";
 
-import { hex as sourceRegistryHex } from "../build/sources-registry.compiled.json";
-import { hex as verifierRegistryHex } from "../build/verifier-registry.compiled.json";
-import { hex as sourceItemHex } from "../build/source-item.compiled.json";
-import { data, keyToAddress } from "../contracts/sources-registry";
 import nacl from "tweetnacl";
-import { makeContract } from "./makeContract";
 import { TvmBus } from "ton-tvm-bus";
 import { SourcesRegistry } from "./sources-registry";
 import { VerifierRegistry } from "./verifier-registry";
 import { SourceItem } from "./source-item";
 import { timeUnixTimeStamp } from "./verifier-registry.spec";
+import { zeroAddress, randomAddress } from "../../temp/ton-src-contracts/test/helpers";
 
-const VERIFIER_ID = 12;
+const VERIFIER_ID = "myverifier.com";
 
 describe("E2E", () => {
   let sourceRegistryContract: SourcesRegistry;
   let verifierRegistryContract: VerifierRegistry;
   let tvmBus: TvmBus;
   const kp = nacl.sign.keyPair.fromSeed(new Uint8Array(32).fill(0));
+  const admin = randomAddress("admin");
 
   const debugTvmBusPool = () =>
     console.log(Array.from(tvmBus.pool.entries()).map(([k, x]) => `${x.constructor.name}:${k}`));
@@ -38,7 +33,7 @@ describe("E2E", () => {
     verifierRegistryContract = await VerifierRegistry.create(kp);
     tvmBus.registerContract(verifierRegistryContract);
 
-    sourceRegistryContract = await SourcesRegistry.create(verifierRegistryContract.address!);
+    sourceRegistryContract = await SourcesRegistry.create(verifierRegistryContract.address!, admin);
     tvmBus.registerContract(sourceRegistryContract);
 
     tvmBus.registerCode(new SourceItem()); // TODO?
@@ -56,23 +51,19 @@ describe("E2E", () => {
     expect(url).to.equal("http://myurl.com");
   });
 
-  it("Modifies the owner and is able to deploy a source item contract", async () => {
+  it("Modifies the verifier registry address and is able to deploy a source item contract", async () => {
     const alternativeKp = nacl.sign.keyPair.fromSeed(new Uint8Array(32).fill(1));
     const alternativeVerifierRegistryContract = await VerifierRegistry.create(alternativeKp);
 
-    const changeOwnerMsg = sourcesRegistry.changeOwner(
+    const changeVerifierRegistryMessage = sourcesRegistry.changeVerifierRegistry(
       alternativeVerifierRegistryContract.address!
     );
 
     await tvmBus.broadcast(
       internalMessage({
-        body: verifierRegistry.sendMessage(
-          changeOwnerMsg,
-          sourceRegistryContract.address!,
-          timeUnixTimeStamp(0),
-          kp.secretKey
-        ),
-        to: verifierRegistryContract.address!,
+        from: admin,
+        body: changeVerifierRegistryMessage,
+        to: sourceRegistryContract.address!,
       })
     );
 
@@ -108,8 +99,8 @@ describe("E2E", () => {
   }
 
   async function readSourceItemContent(sourceItem: SourceItem): Promise<string> {
-    const nftData = await sourceItem.getData();
-    return nftData.beginParse().readRemainingBytes().toString("ascii");
+    const sourceItemData = await sourceItem.getData();
+    return sourceItemData.beginParse().readRemainingBytes().toString("ascii");
   }
 
   it("Deploys a source item contract", async () => {

@@ -41,9 +41,10 @@ export function keyToAddress(
 }
 
 // encode contract storage according to save_data() contract method
-export function data(params: { ownerAddress: Address }): Cell {
+export function data(params: { verifierRegistryAddress: Address, admin: Address }): Cell {
   return beginCell()
-    .storeAddress(params.ownerAddress)
+    .storeAddress(params.admin)
+    .storeAddress(params.verifierRegistryAddress)
     .storeRef(Cell.fromBoc(sourceItemHex)[0])
     .endCell();
 }
@@ -65,6 +66,14 @@ export function deploySource(verifierId: string, codeCellHash: string, jsonURL: 
     .endCell();
 }
 
-export function changeOwner(newOwner: Address): Cell {
-  return beginCell().storeUint(0x3, 32).storeUint(0, 64).storeAddress(newOwner).endCell();
+export function changeVerifierRegistry(newVerifierRegistry: Address): Cell {
+  return beginCell().storeUint(0x3, 32).storeUint(0, 64).storeAddress(newVerifierRegistry).endCell();
+}
+
+export function changeAdmin(newAdmin: Address): Cell {
+  return beginCell().storeUint(0x4, 32).storeUint(0, 64).storeAddress(newAdmin).endCell();
+}
+
+export function changeCode(newCode: Cell): Cell {
+  return beginCell().storeUint(0x5, 32).storeUint(0, 64).storeRef(newCode).endCell();
 }

@@ -1,36 +1,40 @@
 ;; Sources collection smart contract (based on nft collection)
 
 ;; storage scheme
-;; storage#_ owner_address:MsgAddress
-;;           nft_item_code:^Cell
+;; storage#_ verifier_registry_address:MsgAddress
+;;           source_item_code:^Cell
 ;;           = Storage;
 #pragma version >=0.2.0;
 #include "imports/stdlib.fc";
 #include "imports/params.fc";
 
 const int op::deploy_source_item = 1;
-const int op::change_owner = 3;
+const int op::change_verifier_registry = 3;
+const int op::change_admin = 4;
+const int op::set_code = 5;
 const int error::access_denied = 401;
 const int error::unknown_op = 0xffff;
 
-(slice, cell) load_data() inline {
+(slice, slice, cell) load_data() inline {
   var ds = get_data().begin_parse();
   return (
-    ds~load_msg_addr(), ;; owner_address
-    ds~load_ref() ;; nft_item_code
+    ds~load_msg_addr(), ;; admin
+    ds~load_msg_addr(), ;; verifier_registry_address
+    ds~load_ref() ;; source_item_code
   );
 }
 
-() save_data(slice owner_address, cell nft_item_code) impure inline {
+() save_data(slice admin_address, slice verifier_registry_address, cell source_item_code) impure inline {
   set_data(begin_cell()
-    .store_slice(owner_address)
-    .store_ref(nft_item_code)
+    .store_slice(admin_address)
+    .store_slice(verifier_registry_address)
+    .store_ref(source_item_code)
     .end_cell());
 }
 
-cell calculate_nft_item_state_init(int verifier_id, int verified_code_cell_hash, cell nft_item_code) {
+cell calculate_source_item_state_init(int verifier_id, int verified_code_cell_hash, cell source_item_code) {
   cell data = begin_cell().store_uint(verifier_id, 256).store_uint(verified_code_cell_hash, 256).store_slice(my_address()).end_cell();
-  return begin_cell().store_uint(0, 2).store_dict(nft_item_code).store_dict(data).store_uint(0, 1).end_cell();
+  return begin_cell().store_uint(0, 2).store_dict(source_item_code).store_dict(data).store_uint(0, 1).end_cell();
 }
 
 slice calculate_source_item_address(int wc, cell state_init) {
@@ -42,16 +46,16 @@ slice calculate_source_item_address(int wc, cell state_init) {
 }
 
 ;; TODO what amount should we validate for the transfer?
-() deploy_source_item(int verifier_id, int verified_code_cell_hash, cell nft_item_code, cell nft_content) impure {
-  cell state_init = calculate_nft_item_state_init(verifier_id, verified_code_cell_hash, nft_item_code);
-  slice nft_address = calculate_source_item_address(workchain(), state_init);
+() deploy_source_item(int verifier_id, int verified_code_cell_hash, cell source_item_code, cell source_content) impure {
+  cell state_init = calculate_source_item_state_init(verifier_id, verified_code_cell_hash, source_item_code);
+  slice source_address = calculate_source_item_address(workchain(), state_init);
   var msg = begin_cell()
             .store_uint(0x18, 6)
-            .store_slice(nft_address)
+            .store_slice(source_address)
             .store_coins(0)
             .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
             .store_ref(state_init)
-            .store_ref(nft_content);
+            .store_ref(source_content);
   send_raw_message(msg.end_cell(), 64);
 }
 
@@ -70,23 +74,40 @@ slice calculate_source_item_address(int wc, cell state_init) {
   int op = in_msg_body~load_uint(32);
   int query_id = in_msg_body~load_uint(64);
 
-  var (owner_address, nft_item_code) = load_data();
+  var (admin, verifier_registry, source_item_code) = load_data();
 
-  throw_unless(error::access_denied, equal_slices(sender_address, owner_address));
   if (op == op::deploy_source_item) {
+    throw_unless(error::access_denied, equal_slices(sender_address, verifier_registry));
     int verifier_id = in_msg_body~load_uint(256);
     int verified_code_cell_hash = in_msg_body~load_uint(256);
-    cell nft_content = in_msg_body~load_ref();
+    cell source_content = in_msg_body~load_ref();
     in_msg_body.end_parse();
-    deploy_source_item(verifier_id, verified_code_cell_hash, nft_item_code, nft_content);
+    deploy_source_item(verifier_id, verified_code_cell_hash, source_item_code, source_content);
     return ();
   }
 
   ;; TODO op codes => CRC?
-  if (op == op::change_owner) {
-    slice new_owner = in_msg_body~load_msg_addr();
+  if (op == op::change_verifier_registry) {
+    throw_unless(error::access_denied, equal_slices(sender_address, admin));
+    slice new_verifier_registry = in_msg_body~load_msg_addr();
     in_msg_body.end_parse();
-    save_data(new_owner, nft_item_code);
+    save_data(admin, new_verifier_registry, source_item_code);
+    return ();
+  }
+  
+  if (op == op::change_admin) {
+    throw_unless(error::access_denied, equal_slices(sender_address, admin));
+    slice new_admin = in_msg_body~load_msg_addr();
+    in_msg_body.end_parse();
+    save_data(new_admin, verifier_registry, source_item_code);
+    return ();
+  }
+  
+  if (op == op::set_code) {
+    throw_unless(error::access_denied, equal_slices(sender_address, admin));
+    cell new_code = in_msg_body~load_ref();
+    in_msg_body.end_parse();
+    set_code(new_code);
     return ();
   }
 
@@ -95,7 +116,17 @@ slice calculate_source_item_address(int wc, cell state_init) {
 
 ;; Get methods
 slice get_source_item_address(int verifier_id, int verified_code_cell_hash) method_id {
-  var (_, nft_item_code) = load_data();
-  cell state_init = calculate_nft_item_state_init(verifier_id, verified_code_cell_hash, nft_item_code);
+  var (_, _, source_item_code) = load_data();
+  cell state_init = calculate_source_item_state_init(verifier_id, verified_code_cell_hash, source_item_code);
   return calculate_source_item_address(workchain(), state_init);
+}
+
+slice get_verifier_registry_address() method_id {
+  var (_, verifier_registry, _) = load_data();
+  return verifier_registry;
+}
+
+slice get_admin_address() method_id {
+  var (admin, _, _) = load_data();
+  return admin;
 }
