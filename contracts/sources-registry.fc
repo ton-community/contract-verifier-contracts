@@ -1,4 +1,4 @@
-;; Sources collection smart contract (based on nft collection)
+;; Sources registry smart contract (based on nft collection)
 
 ;; storage scheme
 ;; storage#_ verifier_registry_address:MsgAddress
