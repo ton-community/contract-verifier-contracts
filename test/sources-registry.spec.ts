@@ -234,9 +234,24 @@ describe("Sources", () => {
       })
     );
 
+    expect(send.exit_code).to.equal(0);
+
     expect(sourceRegistryContract.contract.codeCell.hash().toString()).to.equal(
       newCodeCell.hash().toString()
     );
+  });
+
+  it("disallows setting an empty set code", async () => {
+    const newCodeCell = beginCell().endCell();
+
+    const send = await sourceRegistryContract.contract.sendInternalMessage(
+      internalMessage({
+        from: randomAddress("admin"),
+        body: sourcesRegistry.changeCode(newCodeCell),
+      })
+    );
+
+    expect(send.exit_code).to.equal(902);
   });
 
   it("disallows a non admin to set code", async () => {
@@ -280,6 +295,49 @@ describe("Sources", () => {
     );
 
     expect(send.exit_code).to.equal(901);
+  });
+
+  it("allows the admin to set source item code", async () => {
+    const newCodeCell = beginCell().storeBit(1).endCell();
+
+    const childFromChainBefore = await childAddressFromChain(specs[0].verifier, specs[0].codeCellHash);
+
+    const send = await sourceRegistryContract.contract.sendInternalMessage(
+      internalMessage({
+        from: randomAddress("admin"),
+        body: sourcesRegistry.setSourceItemCode(newCodeCell),
+      })
+    );
+
+    expect(send.exit_code).to.equal(0);
+
+    const childFromChainAfter = await childAddressFromChain(specs[0].verifier, specs[0].codeCellHash);
+
+    expect(childFromChainBefore.toFriendly()).to.not.equal(childFromChainAfter.toFriendly());
+  });
+
+  it("disallows setting an empty set source item code", async () => {
+    const newCodeCell = beginCell().endCell();
+
+    const send = await sourceRegistryContract.contract.sendInternalMessage(
+      internalMessage({
+        from: randomAddress("admin"),
+        body: sourcesRegistry.setSourceItemCode(newCodeCell),
+      })
+    );
+
+    expect(send.exit_code).to.equal(902);
+  });
+
+  it("disallows a non admin to set surce item code", async () => {
+    const send = await sourceRegistryContract.contract.sendInternalMessage(
+      internalMessage({
+        from: randomAddress("notadmin"),
+        body: sourcesRegistry.setSourceItemCode(new Cell()),
+      })
+    );
+
+    expect(send.exit_code).to.equal(401);
   });
 });
 

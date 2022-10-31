@@ -58,7 +58,7 @@ export const toSha256Buffer = (s: string) => {
 // message encoders for all ops (see contracts/imports/constants.fc for consts)
 export function deploySource(verifierId: string, codeCellHash: string, jsonURL: string): Cell {
   return beginCell()
-    .storeUint(0x1, 32)
+    .storeUint(1002, 32)
     .storeUint(0, 64)
     .storeBuffer(toSha256Buffer(verifierId))
     .storeUint(new BN(Buffer.from(codeCellHash, "base64")), 256)
@@ -67,13 +67,17 @@ export function deploySource(verifierId: string, codeCellHash: string, jsonURL: 
 }
 
 export function changeVerifierRegistry(newVerifierRegistry: Address): Cell {
-  return beginCell().storeUint(0x3, 32).storeUint(0, 64).storeAddress(newVerifierRegistry).endCell();
+  return beginCell().storeUint(2003, 32).storeUint(0, 64).storeAddress(newVerifierRegistry).endCell();
 }
 
 export function changeAdmin(newAdmin: Address): Cell {
-  return beginCell().storeUint(0x4, 32).storeUint(0, 64).storeAddress(newAdmin).endCell();
+  return beginCell().storeUint(3004, 32).storeUint(0, 64).storeAddress(newAdmin).endCell();
+}
+
+export function setSourceItemCode(newCode: Cell): Cell {
+  return beginCell().storeUint(4005, 32).storeUint(0, 64).storeRef(newCode).endCell();
 }
 
 export function changeCode(newCode: Cell): Cell {
-  return beginCell().storeUint(0x5, 32).storeUint(0, 64).storeRef(newCode).endCell();
+  return beginCell().storeUint(5006, 32).storeUint(0, 64).storeRef(newCode).endCell();
 }

@@ -8,10 +8,12 @@
 #include "imports/stdlib.fc";
 #include "imports/params.fc";
 
-const int op::deploy_source_item = 1;
-const int op::change_verifier_registry = 3;
-const int op::change_admin = 4;
-const int op::set_code = 5;
+const int op::deploy_source_item = 1002;
+const int op::change_verifier_registry = 2003;
+const int op::change_admin = 3004;
+const int op::set_source_item_code = 4005;
+const int op::set_code = 5006;
+const int error::invalid_cell_code = 902;
 const int error::too_much_value = 901;
 const int error::not_enough_value = 900;
 const int error::access_denied = 401;
@@ -109,9 +111,19 @@ slice calculate_source_item_address(int wc, cell state_init) {
     return ();
   }
   
+  if (op == op::set_source_item_code) {
+    throw_unless(error::access_denied, equal_slices(sender_address, admin));
+    cell new_source_item_code = in_msg_body~load_ref();
+    throw_if(error::invalid_cell_code, new_source_item_code.begin_parse().slice_empty?());
+    save_data(admin, verifier_registry, new_source_item_code);
+    in_msg_body.end_parse();
+    return ();
+  }
+
   if (op == op::set_code) {
     throw_unless(error::access_denied, equal_slices(sender_address, admin));
     cell new_code = in_msg_body~load_ref();
+    throw_if(error::invalid_cell_code, new_code.begin_parse().slice_empty?());
     in_msg_body.end_parse();
     set_code(new_code);
     return ();
