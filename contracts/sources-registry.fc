@@ -12,8 +12,13 @@ const int op::deploy_source_item = 1;
 const int op::change_verifier_registry = 3;
 const int op::change_admin = 4;
 const int op::set_code = 5;
+const int error::too_much_value = 901;
+const int error::not_enough_value = 900;
 const int error::access_denied = 401;
 const int error::unknown_op = 0xffff;
+
+const int max_tons = 1000000000;
+const int min_tons = 500000000;
 
 (slice, slice, cell) load_data() inline {
   var ds = get_data().begin_parse();
@@ -59,7 +64,7 @@ slice calculate_source_item_address(int wc, cell state_init) {
   send_raw_message(msg.end_cell(), 64);
 }
 
-() recv_internal(cell in_msg_full, slice in_msg_body) impure {
+() recv_internal(int msg_value, cell in_msg_full, slice in_msg_body) impure {
   if (in_msg_body.slice_empty?()) { ;; ignore empty messages
     return ();
   }
@@ -78,6 +83,8 @@ slice calculate_source_item_address(int wc, cell state_init) {
 
   if (op == op::deploy_source_item) {
     throw_unless(error::access_denied, equal_slices(sender_address, verifier_registry));
+    throw_if(error::too_much_value, msg_value > max_tons);
+    throw_if(error::not_enough_value, msg_value < min_tons);
     int verifier_id = in_msg_body~load_uint(256);
     int verified_code_cell_hash = in_msg_body~load_uint(256);
     cell source_content = in_msg_body~load_ref();
@@ -86,7 +93,6 @@ slice calculate_source_item_address(int wc, cell state_init) {
     return ();
   }
 
-  ;; TODO op codes => CRC?
   if (op == op::change_verifier_registry) {
     throw_unless(error::access_denied, equal_slices(sender_address, admin));
     slice new_verifier_registry = in_msg_body~load_msg_addr();

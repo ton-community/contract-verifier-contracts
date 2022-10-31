@@ -16,14 +16,13 @@ const int error::unknown_op = 0xffff;
 ;;  MsgAddressInt collection_address
 ;;  cell content
 ;;
-
 (int, int, int, slice, cell) load_data() {
     slice ds = get_data().begin_parse();
     var (verifier_id, verified_code_cell_hash, collection_address) = (ds~load_uint(256), ds~load_uint(256), ds~load_msg_addr());
     if (ds.slice_refs() > 0) {
       return (-1, verifier_id, verified_code_cell_hash, collection_address, ds~load_ref());
     } else {
-      return (0, verifier_id, verified_code_cell_hash, collection_address, null()); ;; nft not initialized yet
+      return (0, verifier_id, verified_code_cell_hash, collection_address, null()); ;; not initialized yet
     }
 }
 
@@ -50,12 +49,6 @@ const int error::unknown_op = 0xffff;
         return ();
     }
     slice sender_address = cs~load_msg_addr();
-
-    cs~load_msg_addr(); ;; skip dst
-    cs~load_coins(); ;; skip value
-    cs~skip_bits(1); ;; skip extracurrency collection
-    cs~load_coins(); ;; skip ihr_fee
-    int fwd_fee = cs~load_coins(); ;; we use message fwd_fee for estimation of forward_payload costs
 
     (int init?, int verifier_id, int verified_code_cell_hash, slice collection_address, cell content) = load_data();
     if (~ init?) {

@@ -3,7 +3,7 @@ import chaiBN from "chai-bn";
 import BN from "bn.js";
 chai.use(chaiBN(BN));
 
-import { Address, Cell, contractAddress, Slice, beginCell } from 'ton';
+import { Address, Cell, contractAddress, Slice, beginCell, toNano } from "ton";
 import { OutAction, SendMsgAction, SmartContract } from "ton-contract-executor";
 import * as sourcesRegistry from "../contracts/sources-registry";
 import { internalMessage, randomAddress } from "./helpers";
@@ -76,6 +76,7 @@ describe("Sources", () => {
           specs[0].codeCellHash,
           specs[0].jsonURL
         ),
+        value: toNano(0.5),
       })
     );
 
@@ -107,6 +108,7 @@ describe("Sources", () => {
           specs[0].codeCellHash,
           specs[0].jsonURL
         ),
+        value: toNano(0.5),
       })
     );
 
@@ -160,9 +162,14 @@ describe("Sources", () => {
       })
     );
 
-    const res = await sourceRegistryContract.contract.invokeGetMethod("get_verifier_registry_address", []);
+    const res = await sourceRegistryContract.contract.invokeGetMethod(
+      "get_verifier_registry_address",
+      []
+    );
 
-    expect((res.result[0] as Slice).readAddress()?.toFriendly()).to.equal(randomAddress("newVerifierRegistry").toFriendly());
+    expect((res.result[0] as Slice).readAddress()?.toFriendly()).to.equal(
+      randomAddress("newVerifierRegistry").toFriendly()
+    );
 
     const send = await sourceRegistryContract.contract.sendInternalMessage(
       internalMessage({
@@ -172,6 +179,7 @@ describe("Sources", () => {
           specs[0].codeCellHash,
           specs[0].jsonURL
         ),
+        value: toNano(0.5),
       })
     );
 
@@ -189,7 +197,7 @@ describe("Sources", () => {
 
     expect(send.exit_code).to.equal(401);
   });
-  
+
   it("allows the admin to change admin", async () => {
     const send = await sourceRegistryContract.contract.sendInternalMessage(
       internalMessage({
@@ -200,7 +208,9 @@ describe("Sources", () => {
 
     const res = await sourceRegistryContract.contract.invokeGetMethod("get_admin_address", []);
 
-    expect((res.result[0] as Slice).readAddress()?.toFriendly()).to.equal(randomAddress("newadmin").toFriendly());
+    expect((res.result[0] as Slice).readAddress()?.toFriendly()).to.equal(
+      randomAddress("newadmin").toFriendly()
+    );
   });
 
   it("disallows a non admin to change the admin", async () => {
@@ -213,7 +223,7 @@ describe("Sources", () => {
 
     expect(send.exit_code).to.equal(401);
   });
-  
+
   it("allows the admin to set code", async () => {
     const newCodeCell = beginCell().storeBit(1).endCell();
 
@@ -224,7 +234,9 @@ describe("Sources", () => {
       })
     );
 
-    expect(sourceRegistryContract.contract.codeCell.hash().toString()).to.equal(newCodeCell.hash().toString());
+    expect(sourceRegistryContract.contract.codeCell.hash().toString()).to.equal(
+      newCodeCell.hash().toString()
+    );
   });
 
   it("disallows a non admin to set code", async () => {
@@ -236,6 +248,38 @@ describe("Sources", () => {
     );
 
     expect(send.exit_code).to.equal(401);
+  });
+
+  it("rejects deploy messages with less than 0.5TON", async () => {
+    const send = await sourceRegistryContract.contract.sendInternalMessage(
+      internalMessage({
+        from: randomAddress("verifierReg"),
+        body: sourcesRegistry.deploySource(
+          specs[0].verifier,
+          specs[0].codeCellHash,
+          specs[0].jsonURL
+        ),
+        value: toNano(0.49),
+      })
+    );
+
+    expect(send.exit_code).to.equal(900);
+  });
+
+  it("rejects deploy messages with more than 1TON", async () => {
+    const send = await sourceRegistryContract.contract.sendInternalMessage(
+      internalMessage({
+        from: randomAddress("verifierReg"),
+        body: sourcesRegistry.deploySource(
+          specs[0].verifier,
+          specs[0].codeCellHash,
+          specs[0].jsonURL
+        ),
+        value: toNano(1.01),
+      })
+    );
+
+    expect(send.exit_code).to.equal(901);
   });
 });
 

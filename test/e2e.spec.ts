@@ -14,6 +14,7 @@ import { VerifierRegistry } from "./verifier-registry";
 import { SourceItem } from "./source-item";
 import { timeUnixTimeStamp } from "./verifier-registry.spec";
 import { zeroAddress, randomAddress } from "../../temp/ton-src-contracts/test/helpers";
+import { toNano } from "ton";
 
 const VERIFIER_ID = "myverifier.com";
 
@@ -94,6 +95,7 @@ describe("E2E", () => {
           kp.secretKey
         ),
         to: verifierRegistryContract.address!,
+        value: toNano(0.5),
       })
     );
   }

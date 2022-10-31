@@ -6,7 +6,8 @@ import { sendInternalMessageWithWallet } from "../test/helpers";
 // EQBfL6AgP-lNiYXFADmcD5yFPwK9DXhaLNlZl-9cWJAJEmQe
 export function initData() {
   return sourcesRegistry.data({
-    verifierRegistryAddress: Address.parse("EQCcHtD_e3LfV_bJivWwRbZg-RpZD20QiXjjpG47EqRFUPq_"),
+    verifierRegistryAddress: Address.parse("EQDZeSc_Mwu7YKcjopglrDLpLZsHGD5z1TK0xzEhD5ic8kBn"),
+    admin: Address.parse("EQDerEPTIh0O8lBdjWc6aLaJs5HYqlfBN2Ruj1lJQH_6vcaZ"),
   });
 }
 
