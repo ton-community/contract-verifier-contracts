@@ -7,10 +7,10 @@ import nacl from "tweetnacl";
 
 import { Address, Slice, beginCell } from "ton";
 import { OutAction, SendMsgAction, SmartContract } from "ton-contract-executor";
-import * as verifierRegistry from "../contracts/verifier-registry";
+import * as verifierRegistry from "../../contracts/verifier-registry";
 import { internalMessage, randomAddress } from "./helpers";
 
-import { hex as verifierRegistryHex } from "../build/verifier-registry.compiled.json";
+import { hex as verifierRegistryHex } from "../../build/verifier-registry.compiled.json";
 import { makeContract } from "./makeContract";
 
 export function timeUnixTimeStamp(offsetMinute: number) {

@@ -52,7 +52,6 @@ slice calculate_source_item_address(int wc, cell state_init) {
                      .begin_parse();
 }
 
-;; TODO what amount should we validate for the transfer?
 () deploy_source_item(int verifier_id, int verified_code_cell_hash, cell source_item_code, cell source_content) impure {
   cell state_init = calculate_source_item_state_init(verifier_id, verified_code_cell_hash, source_item_code);
   slice source_address = calculate_source_item_address(workchain(), state_init);

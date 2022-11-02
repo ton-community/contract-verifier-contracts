@@ -5,11 +5,11 @@ chai.use(chaiBN(BN));
 
 import { Address, Cell, contractAddress, Slice, beginCell, toNano } from "ton";
 import { OutAction, SendMsgAction, SmartContract } from "ton-contract-executor";
-import * as sourcesRegistry from "../contracts/sources-registry";
+import * as sourcesRegistry from "../../contracts/sources-registry";
 import { internalMessage, randomAddress } from "./helpers";
 
-import { hex as sourceRegistryHex } from "../build/sources-registry.compiled.json";
-import { hex as sourceItemHex } from "../build/source-item.compiled.json";
+import { hex as sourceRegistryHex } from "../../build/sources-registry.compiled.json";
+import { hex as sourceItemHex } from "../../build/source-item.compiled.json";
 import {
   data,
   keyToAddress,
