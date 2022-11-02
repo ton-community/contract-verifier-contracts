@@ -4,19 +4,12 @@ import BN from "bn.js";
 chai.use(chaiBN(BN));
 
 import { Address, Cell, contractAddress, Slice, beginCell, toNano } from "ton";
-import { OutAction, SendMsgAction, SmartContract } from "ton-contract-executor";
+import { SendMsgAction, SmartContract } from "ton-contract-executor";
 import * as sourcesRegistry from "../../contracts/sources-registry";
 import { internalMessage, randomAddress } from "./helpers";
 
 import { hex as sourceRegistryHex } from "../../build/sources-registry.compiled.json";
-import { hex as sourceItemHex } from "../../build/source-item.compiled.json";
-import {
-  data,
-  keyToAddress,
-  keyToIntString,
-  prepareKey,
-  toSha256Buffer,
-} from "../contracts/sources-registry";
+import { toSha256Buffer } from "../../contracts/sources-registry";
 
 const specs = [
   {
@@ -300,7 +293,10 @@ describe("Sources", () => {
   it("allows the admin to set source item code", async () => {
     const newCodeCell = beginCell().storeBit(1).endCell();
 
-    const childFromChainBefore = await childAddressFromChain(specs[0].verifier, specs[0].codeCellHash);
+    const childFromChainBefore = await childAddressFromChain(
+      specs[0].verifier,
+      specs[0].codeCellHash
+    );
 
     const send = await sourceRegistryContract.contract.sendInternalMessage(
       internalMessage({
@@ -311,7 +307,10 @@ describe("Sources", () => {
 
     expect(send.exit_code).to.equal(0);
 
-    const childFromChainAfter = await childAddressFromChain(specs[0].verifier, specs[0].codeCellHash);
+    const childFromChainAfter = await childAddressFromChain(
+      specs[0].verifier,
+      specs[0].codeCellHash
+    );
 
     expect(childFromChainBefore.toFriendly()).to.not.equal(childFromChainAfter.toFriendly());
   });

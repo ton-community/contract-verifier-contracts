@@ -1,10 +1,7 @@
-import BN from "bn.js";
 import { Address, Cell, InternalMessage } from "ton";
 import { SmartContract } from "ton-contract-executor";
 import { ExecutionResult, iTvmBusContract, iDeployableContract, TvmBus } from "ton-tvm-bus";
-import { makeContract } from "./makeContract";
-import { hex as sourceItemHex } from "../build/source-item.compiled.json";
-import { initMessage } from "../../temp/ton-src-contracts/build/sources-registry.deploy";
+import { hex as sourceItemHex } from "../../build/source-item.compiled.json";
 
 export class SourceItem implements iDeployableContract, iTvmBusContract {
   getCodeCell(): Cell[] {
