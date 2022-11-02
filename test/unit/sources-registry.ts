@@ -3,8 +3,8 @@ import { Address, InternalMessage } from "ton";
 import { SmartContract } from "ton-contract-executor";
 import { ExecutionResult, iTvmBusContract } from "ton-tvm-bus";
 import { makeContract } from "./makeContract";
-import * as sourcesRegistry from "../contracts/sources-registry";
-import { hex as sourcesRegistryHex } from "../build/sources-registry.compiled.json";
+import * as sourcesRegistry from "../../contracts/sources-registry";
+import { hex as sourcesRegistryHex } from "../../build/sources-registry.compiled.json";
 
 export class SourcesRegistry implements iTvmBusContract {
   contract?: SmartContract;

@@ -1,12 +1,12 @@
 import * as sourcesRegistry from "../contracts/sources-registry";
 import { Address, toNano, TupleSlice, WalletContract } from "ton";
-import { sendInternalMessageWithWallet } from "../test/helpers";
+import { sendInternalMessageWithWallet, zeroAddress } from '../test/unit/helpers';
 
 // return the init Cell of the contract storage (according to load_data() contract method)
-// EQBfL6AgP-lNiYXFADmcD5yFPwK9DXhaLNlZl-9cWJAJEmQe
 export function initData() {
   return sourcesRegistry.data({
-    verifierRegistryAddress: Address.parse("EQCcHtD_e3LfV_bJivWwRbZg-RpZD20QiXjjpG47EqRFUPq_"),
+    verifierRegistryAddress: zeroAddress,
+    admin: Address.parse("EQBnLd2ta0Od6LkhaeO1zDQ4wcvoUReK8Z8k881BIMrTfjb8"),
   });
 }
 

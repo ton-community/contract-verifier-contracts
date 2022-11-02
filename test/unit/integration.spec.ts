@@ -3,9 +3,9 @@ import chaiBN from "chai-bn";
 import BN from "bn.js";
 chai.use(chaiBN(BN));
 
-import * as sourcesRegistry from "../contracts/sources-registry";
-import * as verifierRegistry from "../contracts/verifier-registry";
-import { internalMessage } from "./helpers";
+import * as sourcesRegistry from "../../contracts/sources-registry";
+import * as verifierRegistry from "../../contracts/verifier-registry";
+import { internalMessage, randomAddress } from "./helpers";
 
 import nacl from "tweetnacl";
 import { TvmBus } from "ton-tvm-bus";
@@ -13,11 +13,11 @@ import { SourcesRegistry } from "./sources-registry";
 import { VerifierRegistry } from "./verifier-registry";
 import { SourceItem } from "./source-item";
 import { timeUnixTimeStamp } from "./verifier-registry.spec";
-import { zeroAddress, randomAddress } from "../../temp/ton-src-contracts/test/helpers";
+import { toNano } from "ton";
 
 const VERIFIER_ID = "myverifier.com";
 
-describe("E2E", () => {
+describe("Integration", () => {
   let sourceRegistryContract: SourcesRegistry;
   let verifierRegistryContract: VerifierRegistry;
   let tvmBus: TvmBus;
@@ -94,6 +94,7 @@ describe("E2E", () => {
           kp.secretKey
         ),
         to: verifierRegistryContract.address!,
+        value: toNano(0.5),
       })
     );
   }

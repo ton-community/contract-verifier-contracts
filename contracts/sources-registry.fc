@@ -1,4 +1,4 @@
-;; Sources collection smart contract (based on nft collection)
+;; Sources registry smart contract (based on nft collection)
 
 ;; storage scheme
 ;; storage#_ verifier_registry_address:MsgAddress
@@ -8,12 +8,19 @@
 #include "imports/stdlib.fc";
 #include "imports/params.fc";
 
-const int op::deploy_source_item = 1;
-const int op::change_verifier_registry = 3;
-const int op::change_admin = 4;
-const int op::set_code = 5;
+const int op::deploy_source_item = 1002;
+const int op::change_verifier_registry = 2003;
+const int op::change_admin = 3004;
+const int op::set_source_item_code = 4005;
+const int op::set_code = 5006;
+const int error::invalid_cell_code = 902;
+const int error::too_much_value = 901;
+const int error::not_enough_value = 900;
 const int error::access_denied = 401;
 const int error::unknown_op = 0xffff;
+
+const int max_tons = 1000000000;
+const int min_tons = 500000000;
 
 (slice, slice, cell) load_data() inline {
   var ds = get_data().begin_parse();
@@ -45,7 +52,6 @@ slice calculate_source_item_address(int wc, cell state_init) {
                      .begin_parse();
 }
 
-;; TODO what amount should we validate for the transfer?
 () deploy_source_item(int verifier_id, int verified_code_cell_hash, cell source_item_code, cell source_content) impure {
   cell state_init = calculate_source_item_state_init(verifier_id, verified_code_cell_hash, source_item_code);
   slice source_address = calculate_source_item_address(workchain(), state_init);
@@ -59,7 +65,7 @@ slice calculate_source_item_address(int wc, cell state_init) {
   send_raw_message(msg.end_cell(), 64);
 }
 
-() recv_internal(cell in_msg_full, slice in_msg_body) impure {
+() recv_internal(int msg_value, cell in_msg_full, slice in_msg_body) impure {
   if (in_msg_body.slice_empty?()) { ;; ignore empty messages
     return ();
   }
@@ -78,6 +84,8 @@ slice calculate_source_item_address(int wc, cell state_init) {
 
   if (op == op::deploy_source_item) {
     throw_unless(error::access_denied, equal_slices(sender_address, verifier_registry));
+    throw_if(error::too_much_value, msg_value > max_tons);
+    throw_if(error::not_enough_value, msg_value < min_tons);
     int verifier_id = in_msg_body~load_uint(256);
     int verified_code_cell_hash = in_msg_body~load_uint(256);
     cell source_content = in_msg_body~load_ref();
@@ -86,7 +94,6 @@ slice calculate_source_item_address(int wc, cell state_init) {
     return ();
   }
 
-  ;; TODO op codes => CRC?
   if (op == op::change_verifier_registry) {
     throw_unless(error::access_denied, equal_slices(sender_address, admin));
     slice new_verifier_registry = in_msg_body~load_msg_addr();
@@ -103,9 +110,19 @@ slice calculate_source_item_address(int wc, cell state_init) {
     return ();
   }
   
+  if (op == op::set_source_item_code) {
+    throw_unless(error::access_denied, equal_slices(sender_address, admin));
+    cell new_source_item_code = in_msg_body~load_ref();
+    throw_if(error::invalid_cell_code, new_source_item_code.begin_parse().slice_empty?());
+    save_data(admin, verifier_registry, new_source_item_code);
+    in_msg_body.end_parse();
+    return ();
+  }
+
   if (op == op::set_code) {
     throw_unless(error::access_denied, equal_slices(sender_address, admin));
     cell new_code = in_msg_body~load_ref();
+    throw_if(error::invalid_cell_code, new_code.begin_parse().slice_empty?());
     in_msg_body.end_parse();
     set_code(new_code);
     return ();

@@ -3,10 +3,8 @@ import { Address, InternalMessage } from "ton";
 import { SmartContract } from "ton-contract-executor";
 import { ExecutionResult, iTvmBusContract } from "ton-tvm-bus";
 import { makeContract } from "./makeContract";
-import * as verifierRegistry from "../contracts/verifier-registry";
-import { hex as verifierRegistryHex } from "../build/verifier-registry.compiled.json";
-import { cons } from "fp-ts/lib/ReadonlyNonEmptyArray";
-import { internalMessage } from "../../temp/ton-src-contracts/test/helpers";
+import * as verifierRegistry from "../../contracts/verifier-registry";
+import { hex as verifierRegistryHex } from "../../build/verifier-registry.compiled.json";
 
 export class VerifierRegistry implements iTvmBusContract {
   contract?: SmartContract;

@@ -1,7 +1,7 @@
 import * as veriferRegistry from "../contracts/verifier-registry";
 import * as sourcesRegistry from "../contracts/sources-registry";
 import { Address, toNano, TupleSlice, WalletContract, beginCell } from "ton";
-import { sendInternalMessageWithWallet } from "../test/helpers";
+import { sendInternalMessageWithWallet } from "../test/unit/helpers";
 import nacl from "tweetnacl";
 import { keyToAddress } from "../contracts/sources-registry";
 
