@@ -40,14 +40,27 @@ describe("Integration", () => {
   });
 
   it("Updates an existing source item contract's data", async () => {
-    await deployFakeSource(verifierRegistryContract, kp);
+    const messageListBefore = await deployFakeSource(verifierRegistryContract, kp);
 
-    const messageList = await deployFakeSource(verifierRegistryContract, kp, "http://changed.com");
+    const [versionBefore, urlBefore] = await readSourceItemContent(
+      messageListBefore[messageListBefore.length - 1].contractImpl as SourceItem
+    );
 
-    const url = await readSourceItemContent(
+    expect(versionBefore).to.equal(1);
+    expect(urlBefore).to.equal("http://myurl.com");
+
+    const messageList = await deployFakeSource(
+      verifierRegistryContract,
+      kp,
+      "http://changed.com",
+      4
+    );
+
+    const [version, url] = await readSourceItemContent(
       messageList[messageList.length - 1].contractImpl as SourceItem
     );
 
+    expect(version).to.equal(4);
     expect(url).to.equal("http://changed.com");
   });
 
@@ -71,10 +84,11 @@ describe("Integration", () => {
 
     const messageList = await deployFakeSource(alternativeVerifierRegistryContract, alternativeKp);
 
-    const url = await readSourceItemContent(
+    const [version, url] = await readSourceItemContent(
       messageList[messageList.length - 1].contractImpl as SourceItem
     );
 
+    expect(version).to.equal(1);
     expect(url).to.equal("http://myurl.com");
   });
 
@@ -100,19 +114,22 @@ describe("Integration", () => {
     );
   }
 
-  async function readSourceItemContent(sourceItem: SourceItem): Promise<string> {
+  async function readSourceItemContent(sourceItem: SourceItem): Promise<[number, string]> {
     const sourceItemData = (await sourceItem.getData()).beginParse();
-    sourceItemData.readUint(8) // skip version
-    return sourceItemData.readRemainingBytes().toString("ascii");
+    return [
+      sourceItemData.readUintNumber(8),
+      sourceItemData.readRemainingBytes().toString("ascii"),
+    ];
   }
 
   it("Deploys a source item contract", async () => {
-    const messageList = await deployFakeSource(verifierRegistryContract, kp);
+    const messageList = await deployFakeSource(verifierRegistryContract, kp, "http://myurl.com", 2);
 
-    const url = await readSourceItemContent(
+    const [version, url] = await readSourceItemContent(
       messageList[messageList.length - 1].contractImpl as SourceItem
     );
 
+    expect(version).to.equal(2);
     expect(url).to.equal("http://myurl.com");
 
     // debugTvmBusPool();
