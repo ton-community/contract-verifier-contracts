@@ -1,4 +1,4 @@
-import BN from "bn.js";
+import BN, { min } from "bn.js";
 import { Cell, beginCell, Address } from "ton";
 import { Sha256 } from "@aws-crypto/sha256-js";
 
@@ -41,8 +41,15 @@ export function keyToAddress(
 }
 
 // encode contract storage according to save_data() contract method
-export function data(params: { verifierRegistryAddress: Address, admin: Address }): Cell {
+export function data(params: {
+  minTons: BN;
+  maxTons: BN;
+  verifierRegistryAddress: Address;
+  admin: Address;
+}): Cell {
   return beginCell()
+    .storeCoins(params.minTons)
+    .storeCoins(params.maxTons)
     .storeAddress(params.admin)
     .storeAddress(params.verifierRegistryAddress)
     .storeRef(Cell.fromBoc(sourceItemHex)[0])
@@ -67,7 +74,11 @@ export function deploySource(verifierId: string, codeCellHash: string, jsonURL: 
 }
 
 export function changeVerifierRegistry(newVerifierRegistry: Address): Cell {
-  return beginCell().storeUint(2003, 32).storeUint(0, 64).storeAddress(newVerifierRegistry).endCell();
+  return beginCell()
+    .storeUint(2003, 32)
+    .storeUint(0, 64)
+    .storeAddress(newVerifierRegistry)
+    .endCell();
 }
 
 export function changeAdmin(newAdmin: Address): Cell {
@@ -80,4 +91,13 @@ export function setSourceItemCode(newCode: Cell): Cell {
 
 export function changeCode(newCode: Cell): Cell {
   return beginCell().storeUint(5006, 32).storeUint(0, 64).storeRef(newCode).endCell();
+}
+
+export function setDeploymentCosts(minTon: BN, maxTon: BN): Cell {
+  return beginCell()
+    .storeUint(6007, 32)
+    .storeUint(0, 64)
+    .storeCoins(minTon)
+    .storeCoins(maxTon)
+    .endCell();
 }
