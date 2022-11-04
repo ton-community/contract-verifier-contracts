@@ -95,6 +95,7 @@ slice calculate_source_item_address(int wc, cell state_init) {
   if (op == op::deploy_source_item) {
     throw_unless(error::access_denied, equal_slices(sender_address, verifier_registry));
     throw_if(error::too_much_value, msg_value > max_tons);
+    throw_if(error::not_enough_value, msg_value < min_tons_lower_bound);
     throw_if(error::not_enough_value, msg_value < min_tons);
     int verifier_id = in_msg_body~load_uint(256);
     int verified_code_cell_hash = in_msg_body~load_uint(256);

@@ -8,7 +8,6 @@
 const int error::access_denied = 401;
 const int error::unknown_op = 0xffff;
 
-;;
 ;;  Storage
 ;;
 ;;  uint256 verifier_id
