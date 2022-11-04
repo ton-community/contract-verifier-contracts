@@ -59,7 +59,7 @@ describe("Integration", () => {
       alternativeVerifierRegistryContract.address!
     );
 
-    await tvmBus.broadcast(
+    const res = await tvmBus.broadcast(
       internalMessage({
         from: admin,
         body: changeVerifierRegistryMessage,

@@ -1,5 +1,5 @@
 import BN from "bn.js";
-import { Address, InternalMessage } from "ton";
+import { Address, InternalMessage, toNano } from "ton";
 import { SmartContract } from "ton-contract-executor";
 import { ExecutionResult, iTvmBusContract } from "ton-tvm-bus";
 import { makeContract } from "./makeContract";
@@ -15,6 +15,8 @@ export class SourcesRegistry implements iTvmBusContract {
     const sourcesRegistryContract = await makeContract(
       sourcesRegistryHex,
       sourcesRegistry.data({
+        minTons: toNano(0.065),
+        maxTons: toNano(1),
         admin: admin,
         verifierRegistryAddress: verifierRegistryAddress,
       })

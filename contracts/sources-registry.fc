@@ -1,7 +1,11 @@
 ;; Sources registry smart contract (based on nft collection)
 
 ;; storage scheme
-;; storage#_ verifier_registry_address:MsgAddress
+;; storage#_ 
+;;           min_ton: (VarUInteger 16)
+;;           max_ton: (VarUInteger 16)
+;;           admin_address:MsgAddress
+;;           verifier_registry_address:MsgAddress
 ;;           source_item_code:^Cell
 ;;           = Storage;
 #pragma version >=0.2.0;
@@ -13,26 +17,32 @@ const int op::change_verifier_registry = 2003;
 const int op::change_admin = 3004;
 const int op::set_source_item_code = 4005;
 const int op::set_code = 5006;
+const int op::set_deployment_costs = 6007;
+
+const int error::invalid_value = 903;
 const int error::invalid_cell_code = 902;
 const int error::too_much_value = 901;
 const int error::not_enough_value = 900;
 const int error::access_denied = 401;
 const int error::unknown_op = 0xffff;
 
-const int max_tons = 1000000000;
-const int min_tons = 500000000;
+const int min_tons_lower_bound = 65000000; ;; 0.065 TON
 
-(slice, slice, cell) load_data() inline {
+(int, int, slice, slice, cell) load_data() inline {
   var ds = get_data().begin_parse();
   return (
+    ds~load_grams(), ;; min_ton
+    ds~load_grams(), ;; max_ton
     ds~load_msg_addr(), ;; admin
     ds~load_msg_addr(), ;; verifier_registry_address
     ds~load_ref() ;; source_item_code
   );
 }
 
-() save_data(slice admin_address, slice verifier_registry_address, cell source_item_code) impure inline {
+() save_data(int min_ton, int max_ton, slice admin_address, slice verifier_registry_address, cell source_item_code) impure inline {
   set_data(begin_cell()
+    .store_grams(min_ton)
+    .store_grams(max_ton)
     .store_slice(admin_address)
     .store_slice(verifier_registry_address)
     .store_ref(source_item_code)
@@ -80,11 +90,12 @@ slice calculate_source_item_address(int wc, cell state_init) {
   int op = in_msg_body~load_uint(32);
   int query_id = in_msg_body~load_uint(64);
 
-  var (admin, verifier_registry, source_item_code) = load_data();
+  var (min_tons, max_tons, admin, verifier_registry, source_item_code) = load_data();
 
   if (op == op::deploy_source_item) {
     throw_unless(error::access_denied, equal_slices(sender_address, verifier_registry));
     throw_if(error::too_much_value, msg_value > max_tons);
+    throw_if(error::not_enough_value, msg_value < min_tons_lower_bound);
     throw_if(error::not_enough_value, msg_value < min_tons);
     int verifier_id = in_msg_body~load_uint(256);
     int verified_code_cell_hash = in_msg_body~load_uint(256);
@@ -98,7 +109,7 @@ slice calculate_source_item_address(int wc, cell state_init) {
     throw_unless(error::access_denied, equal_slices(sender_address, admin));
     slice new_verifier_registry = in_msg_body~load_msg_addr();
     in_msg_body.end_parse();
-    save_data(admin, new_verifier_registry, source_item_code);
+    save_data(min_tons, max_tons, admin, new_verifier_registry, source_item_code);
     return ();
   }
   
@@ -106,7 +117,7 @@ slice calculate_source_item_address(int wc, cell state_init) {
     throw_unless(error::access_denied, equal_slices(sender_address, admin));
     slice new_admin = in_msg_body~load_msg_addr();
     in_msg_body.end_parse();
-    save_data(new_admin, verifier_registry, source_item_code);
+    save_data(min_tons, max_tons, new_admin, verifier_registry, source_item_code);
     return ();
   }
   
@@ -114,7 +125,7 @@ slice calculate_source_item_address(int wc, cell state_init) {
     throw_unless(error::access_denied, equal_slices(sender_address, admin));
     cell new_source_item_code = in_msg_body~load_ref();
     throw_if(error::invalid_cell_code, new_source_item_code.begin_parse().slice_empty?());
-    save_data(admin, verifier_registry, new_source_item_code);
+    save_data(min_tons, max_tons, admin, verifier_registry, new_source_item_code);
     in_msg_body.end_parse();
     return ();
   }
@@ -127,23 +138,39 @@ slice calculate_source_item_address(int wc, cell state_init) {
     set_code(new_code);
     return ();
   }
+  
+  if (op == op::set_deployment_costs) {
+    throw_unless(error::access_denied, equal_slices(sender_address, admin));
+    int new_min_tons = in_msg_body~load_grams();
+    int new_max_tons = in_msg_body~load_grams();
+    throw_unless(error::invalid_value, new_min_tons >= min_tons_lower_bound);
+    throw_unless(error::invalid_value, new_max_tons >= new_min_tons);
+    in_msg_body.end_parse();
+    save_data(new_min_tons, new_max_tons, admin, verifier_registry, source_item_code);
+    return ();
+  }
 
   throw(error::unknown_op);
 }
 
 ;; Get methods
 slice get_source_item_address(int verifier_id, int verified_code_cell_hash) method_id {
-  var (_, _, source_item_code) = load_data();
+  var (_, _, _, _, source_item_code) = load_data();
   cell state_init = calculate_source_item_state_init(verifier_id, verified_code_cell_hash, source_item_code);
   return calculate_source_item_address(workchain(), state_init);
 }
 
 slice get_verifier_registry_address() method_id {
-  var (_, verifier_registry, _) = load_data();
+  var (_, _, _, verifier_registry, _) = load_data();
   return verifier_registry;
 }
 
 slice get_admin_address() method_id {
-  var (admin, _, _) = load_data();
+  var (_, _, admin, _, _) = load_data();
   return admin;
+}
+
+(int,int) get_deployment_costs() method_id {
+  var (min_ton, max_ton, _, _, _) = load_data();
+  return (min_ton, max_ton);
 }
