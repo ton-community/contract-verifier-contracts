@@ -274,4 +274,4 @@ function toSha256Buffer(s: string) {
   await setCodeTests(sourcesRegistryContract, tc, wallet2);
   await replaceAdmin(sourcesRegistryContract, wallet2, wallet1.walletContract.address, tc);
   await setSourceItemCodeTests(sourcesRegistryContract, tc, wallet1);
-})({ sourcesRegistryContract: Address.parse("EQCFYXRqFFnXfXSnicF8vYxR7jGw4T9B3aNVpeHHVzR2jnuv") });
+})({ sourcesRegistryContract: Address.parse("EQD-BJSVUJviud_Qv7Ymfd3qzXdrmV525e3YDzWQoHIAiInL") });

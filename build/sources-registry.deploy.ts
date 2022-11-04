@@ -5,6 +5,8 @@ import { sendInternalMessageWithWallet, zeroAddress } from '../test/unit/helpers
 // return the init Cell of the contract storage (according to load_data() contract method)
 export function initData() {
   return sourcesRegistry.data({
+    minTons: toNano(0.5),
+    maxTons: toNano(1),
     verifierRegistryAddress: zeroAddress,
     admin: Address.parse("EQBnLd2ta0Od6LkhaeO1zDQ4wcvoUReK8Z8k881BIMrTfjb8"),
   });
