@@ -3,7 +3,7 @@ import chaiBN from "chai-bn";
 import BN from "bn.js";
 chai.use(chaiBN(BN));
 
-import { Address, Cell, contractAddress, Slice, beginCell, toNano } from "ton";
+import { Address, Cell, contractAddress, Slice, beginCell, toNano, fromNano } from "ton";
 import { SendMsgAction, SmartContract } from "ton-contract-executor";
 import * as sourcesRegistry from "../../contracts/sources-registry";
 import { internalMessage, randomAddress } from "./helpers";
@@ -348,6 +348,10 @@ describe("Sources", () => {
           value: toNano(0.01),
         })
       );
+
+      const res = await sourceRegistryContract.contract.invokeGetMethod("get_deployment_costs", []);
+      expect(fromNano(res.result[0] as BN)).to.bignumber.eq(new BN(10))
+      expect(fromNano(res.result[1] as BN)).to.bignumber.eq(new BN(20))
 
       const send = await sourceRegistryContract.contract.sendInternalMessage(
         internalMessage({
