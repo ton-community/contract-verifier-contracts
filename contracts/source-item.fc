@@ -15,14 +15,10 @@ const int error::unknown_op = 0xffff;
 ;;  MsgAddressInt source_item_registry
 ;;  cell content
 ;;
-(int, int, int, slice, cell) load_data() {
+(int, int, slice, cell) load_data() {
     slice ds = get_data().begin_parse();
     var (verifier_id, verified_code_cell_hash, source_item_registry) = (ds~load_uint(256), ds~load_uint(256), ds~load_msg_addr());
-    if (ds.slice_refs() > 0) {
-      return (-1, verifier_id, verified_code_cell_hash, source_item_registry, ds~load_ref());
-    } else {
-      return (0, verifier_id, verified_code_cell_hash, source_item_registry, null()); ;; not initialized yet
-    }
+    return (verifier_id, verified_code_cell_hash, source_item_registry, ds~load_ref());
 }
 
 () store_data(int verifier_id, int verified_code_cell_hash, slice source_item_registry, cell content) impure {
@@ -49,20 +45,15 @@ const int error::unknown_op = 0xffff;
     }
     slice sender_address = cs~load_msg_addr();
 
-    (int init?, int verifier_id, int verified_code_cell_hash, slice source_item_registry, cell content) = load_data();
-    if (~ init?) {
-      throw_unless(error::access_denied, equal_slices(source_item_registry, sender_address));
-      store_data(verifier_id, verified_code_cell_hash, source_item_registry, begin_cell().store_slice(in_msg_body).end_cell());
-      return ();
-    }
-
-    throw(error::unknown_op);
+    (int verifier_id, int verified_code_cell_hash, slice source_item_registry, cell content) = load_data();
+    throw_unless(error::access_denied, equal_slices(source_item_registry, sender_address));
+    store_data(verifier_id, verified_code_cell_hash, source_item_registry, begin_cell().store_slice(in_msg_body).end_cell());
 }
 
 ;;
 ;;  GET Methods
 ;;
-(int, int, int, slice, cell) get_source_item_data() method_id {
-  (int init?, int verifier_id, int verified_code_cell_hash, slice source_item_registry, cell content) = load_data();
-  return (init?, verifier_id, verified_code_cell_hash, source_item_registry, content);
+(int, int, slice, cell) get_source_item_data() method_id {
+  (int verifier_id, int verified_code_cell_hash, slice source_item_registry, cell content) = load_data();
+  return (verifier_id, verified_code_cell_hash, source_item_registry, content);
 }
