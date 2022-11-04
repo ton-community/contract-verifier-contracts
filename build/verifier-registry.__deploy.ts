@@ -58,7 +58,7 @@ export async function postDeployTest(
     )
   );
 
-  const msgCell = sourcesRegistry.deploySource(0, "fofokoko", "myurl.com/koko.json");
+  const msgCell = sourcesRegistry.deploySource(0, "fofokoko", "myurl.com/koko.json", 1);
   const sourcesRegAddr = Address.parse("EQB66ecFPztx7ccoFquOSl2bNKuWJqAHSWMhx--QUFv3UueP");
 
   await sendInternalMessageWithWallet({

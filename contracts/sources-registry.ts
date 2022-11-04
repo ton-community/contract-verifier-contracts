@@ -63,13 +63,18 @@ export const toSha256Buffer = (s: string) => {
 };
 
 // message encoders for all ops (see contracts/imports/constants.fc for consts)
-export function deploySource(verifierId: string, codeCellHash: string, jsonURL: string): Cell {
+export function deploySource(
+  verifierId: string,
+  codeCellHash: string,
+  jsonURL: string,
+  version: number
+): Cell {
   return beginCell()
     .storeUint(1002, 32)
     .storeUint(0, 64)
     .storeBuffer(toSha256Buffer(verifierId))
     .storeUint(new BN(Buffer.from(codeCellHash, "base64")), 256)
-    .storeRef(beginCell().storeBuffer(Buffer.from(jsonURL)).endCell()) // TODO support snakes
+    .storeRef(beginCell().storeUint(version, 8).storeBuffer(Buffer.from(jsonURL)).endCell()) // TODO support snakes
     .endCell();
 }
 
