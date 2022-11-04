@@ -39,7 +39,7 @@ describe("Integration", () => {
     tvmBus.registerCode(new SourceItem()); // TODO?
   });
 
-  it("Cannot update an existing source item contract's data", async () => {
+  it("Updates an existing source item contract's data", async () => {
     await deployFakeSource(verifierRegistryContract, kp);
 
     const messageList = await deployFakeSource(verifierRegistryContract, kp, "http://changed.com");
@@ -48,7 +48,7 @@ describe("Integration", () => {
       messageList[messageList.length - 1].contractImpl as SourceItem
     );
 
-    expect(url).to.equal("http://myurl.com");
+    expect(url).to.equal("http://changed.com");
   });
 
   it("Modifies the verifier registry address and is able to deploy a source item contract", async () => {
@@ -81,9 +81,10 @@ describe("Integration", () => {
   async function deployFakeSource(
     verifierRegistryContract: VerifierRegistry,
     kp: nacl.SignKeyPair,
-    url = "http://myurl.com"
+    url = "http://myurl.com",
+    version: number = 1
   ) {
-    const msg = sourcesRegistry.deploySource(VERIFIER_ID, "XXX123", url);
+    const msg = sourcesRegistry.deploySource(VERIFIER_ID, "XXX123", url, version);
 
     return await tvmBus.broadcast(
       internalMessage({
@@ -100,8 +101,9 @@ describe("Integration", () => {
   }
 
   async function readSourceItemContent(sourceItem: SourceItem): Promise<string> {
-    const sourceItemData = await sourceItem.getData();
-    return sourceItemData.beginParse().readRemainingBytes().toString("ascii");
+    const sourceItemData = (await sourceItem.getData()).beginParse();
+    sourceItemData.readUint(8) // skip version
+    return sourceItemData.readRemainingBytes().toString("ascii");
   }
 
   it("Deploys a source item contract", async () => {

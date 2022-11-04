@@ -70,7 +70,8 @@ describe("Sources", () => {
           body: sourcesRegistry.deploySource(
             specs[0].verifier,
             specs[0].codeCellHash,
-            specs[0].jsonURL
+            specs[0].jsonURL,
+            1
           ),
           value: toNano(0.5),
         })
@@ -104,7 +105,8 @@ describe("Sources", () => {
           body: sourcesRegistry.deploySource(
             specs[0].verifier,
             specs[0].codeCellHash,
-            specs[0].jsonURL
+            specs[0].jsonURL,
+            1
           ),
         })
       );
@@ -121,7 +123,8 @@ describe("Sources", () => {
           body: sourcesRegistry.deploySource(
             specs[0].verifier,
             specs[0].codeCellHash,
-            specs[0].jsonURL
+            specs[0].jsonURL,
+            1
           ),
           value: toNano(0.5),
         })
@@ -179,7 +182,8 @@ describe("Sources", () => {
           body: sourcesRegistry.deploySource(
             specs[0].verifier,
             specs[0].codeCellHash,
-            specs[0].jsonURL
+            specs[0].jsonURL,
+            1
           ),
           value: toNano(0.5),
         })
@@ -331,7 +335,8 @@ describe("Sources", () => {
           body: sourcesRegistry.deploySource(
             specs[0].verifier,
             specs[0].codeCellHash,
-            specs[0].jsonURL
+            specs[0].jsonURL,
+            1
           ),
           value: toNano(0.049),
         })
@@ -350,8 +355,8 @@ describe("Sources", () => {
       );
 
       const res = await sourceRegistryContract.contract.invokeGetMethod("get_deployment_costs", []);
-      expect(fromNano(res.result[0] as BN)).to.bignumber.eq(new BN(10))
-      expect(fromNano(res.result[1] as BN)).to.bignumber.eq(new BN(20))
+      expect(fromNano(res.result[0] as BN)).to.bignumber.eq(new BN(10));
+      expect(fromNano(res.result[1] as BN)).to.bignumber.eq(new BN(20));
 
       const send = await sourceRegistryContract.contract.sendInternalMessage(
         internalMessage({
@@ -359,7 +364,8 @@ describe("Sources", () => {
           body: sourcesRegistry.deploySource(
             specs[0].verifier,
             specs[0].codeCellHash,
-            specs[0].jsonURL
+            specs[0].jsonURL,
+            1
           ),
           value: toNano(9),
         })
@@ -373,7 +379,8 @@ describe("Sources", () => {
           body: sourcesRegistry.deploySource(
             specs[0].verifier,
             specs[0].codeCellHash,
-            specs[0].jsonURL
+            specs[0].jsonURL,
+            1
           ),
           value: toNano(19),
         })
@@ -387,7 +394,8 @@ describe("Sources", () => {
           body: sourcesRegistry.deploySource(
             specs[0].verifier,
             specs[0].codeCellHash,
-            specs[0].jsonURL
+            specs[0].jsonURL,
+            1
           ),
           value: toNano(20.1),
         })
@@ -427,7 +435,8 @@ describe("Sources", () => {
           body: sourcesRegistry.deploySource(
             specs[0].verifier,
             specs[0].codeCellHash,
-            specs[0].jsonURL
+            specs[0].jsonURL,
+            1
           ),
           value: toNano(1.01),
         })
@@ -440,8 +449,8 @@ describe("Sources", () => {
 
 async function parseUrlFromGetSourceItemData(contract: SmartContract): Promise<string | null> {
   const res = await contract.invokeGetMethod("get_source_item_data", []);
-  if (res.result[4] !== null) {
-    return (res.result[4] as Cell).beginParse().readRemainingBytes().toString("ascii");
-  }
-  return null;
+  if (res.result[3] === null) return null;
+  const sourceItemData = (res.result[3] as Cell).beginParse();
+  sourceItemData.readUint(8); // skip version
+  return sourceItemData.readRemainingBytes().toString("ascii");
 }
