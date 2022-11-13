@@ -5,7 +5,13 @@ The contract accepts messages from a designated verifier registry contract.
 > The verifier registry in this repo is a simplified version. The actual verifier registry to be used is https://github.com/shaharyakir/registry-contract
 (TODO change when verifier registry has a final repo)
 
-Implementation is based on [TEP-91 suggestion](https://github.com/ton-blockchain/TEPs/pull/91)
+Implementation is based on [TEP-91 suggestion](https://github.com/ton-blockchain/TEPs/pull/91).
+
+This repo is a part of the following:
+1. [contract-verifier-contracts](https://github.com/ton-community/contract-verifier-contracts) (this repo) - Sources registry contracts which stores an on-chain proof per code cell hash.
+2. [contract-verifier-backend](https://github.com/ton-community/contract-verifier-backend) - Backend for compiling FunC and returning a signature over a message containing the resulting code cell hash.
+3. [contract-verifier-sdk](https://github.com/ton-community/contract-verifier-contracts) - A UI component to fetch and display sources from Ton blockchain and IPFS, including code highlighting.
+4. ton-contract-verifier - A UI app to interact with the backend, contracts and publish an on-chain proof.
 
 ## E2E tests
 (e2e.ts in test/e2e)
