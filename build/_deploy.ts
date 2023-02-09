@@ -93,6 +93,8 @@ async function main() {
     }
     const initCodeCell = Cell.fromBoc(JSON.parse(fs.readFileSync(hexArtifact).toString()).hex)[0];
 
+    console.log("CODE CELL HASH:", initCodeCell.hash().toString("base64"))
+
     // make sure the contract was not already deployed
     const newContractAddress = contractAddress({ workchain, initialData: initDataCell, initialCode: initCodeCell });
     console.log(` - Based on your init code+data, your new contract address is: ${newContractAddress.toFriendly()}`);
