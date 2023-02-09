@@ -1,7 +1,17 @@
 import BN from "bn.js";
-import { Address, Cell, CellMessage, InternalMessage, CommonMessageInfo, WalletContract, SendMode, Wallet } from "ton";
+import {
+  Address,
+  Cell,
+  CellMessage,
+  InternalMessage,
+  CommonMessageInfo,
+  WalletContract,
+  SendMode,
+  Wallet,
+} from "ton";
 import { SmartContract } from "ton-contract-executor";
 import Prando from "prando";
+import { mnemonicNew, mnemonicToPrivateKey } from "ton-crypto";
 
 export const zeroAddress = new Address(0, Buffer.alloc(32, 0));
 
@@ -14,8 +24,19 @@ export function randomAddress(seed: string, workchain?: number) {
   return new Address(workchain ?? 0, hash);
 }
 
+export async function randomKeyPair() {
+  let mnemonics = await mnemonicNew();
+  return mnemonicToPrivateKey(mnemonics);
+}
+
 // used with ton-contract-executor (unit tests) to sendInternalMessage easily
-export function internalMessage(params: { from?: Address; to?: Address; value?: BN; bounce?: boolean; body?: Cell }) {
+export function internalMessage(params: {
+  from?: Address;
+  to?: Address;
+  value?: BN;
+  bounce?: boolean;
+  body?: Cell;
+}) {
   const message = params.body ? new CellMessage(params.body) : undefined;
   return new InternalMessage({
     from: params.from ?? randomAddress("sender"),
@@ -34,7 +55,14 @@ export function setBalance(contract: SmartContract, balance: BN) {
 }
 
 // helper for end-to-end on-chain tests (normally post deploy) to allow sending InternalMessages to contracts using a wallet
-export async function sendInternalMessageWithWallet(params: { walletContract: WalletContract; secretKey: Buffer; to: Address; value: BN; bounce?: boolean; body?: Cell }) {
+export async function sendInternalMessageWithWallet(params: {
+  walletContract: WalletContract;
+  secretKey: Buffer;
+  to: Address;
+  value: BN;
+  bounce?: boolean;
+  body?: Cell;
+}) {
   const message = params.body ? new CellMessage(params.body) : undefined;
   const seqno = await params.walletContract.getSeqNo();
   const transfer = params.walletContract.createTransfer({
