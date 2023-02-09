@@ -2,8 +2,6 @@
 
 A sources registry contract for registering a data url for a given code cell hash.
 The contract accepts messages from a designated verifier registry contract.
-> The verifier registry in this repo is a simplified version. The actual verifier registry to be used is https://github.com/shaharyakir/registry-contract
-(TODO change when verifier registry has a final repo)
 
 Implementation is based on [TEP-91 suggestion](https://github.com/ton-blockchain/TEPs/pull/91).
 

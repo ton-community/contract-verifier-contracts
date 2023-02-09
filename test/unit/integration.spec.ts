@@ -33,7 +33,7 @@ describe("Integration", () => {
   beforeEach(async () => {
     tvmBus = new TvmBus();
 
-    const verifierConfig = await genDefaultVerifierRegistryConfig();
+    const verifierConfig = await genDefaultVerifierRegistryConfig(1);
     keys = verifierConfig.keys;
     verifierRegistryContract = await VerifierRegistry.createFromConfig(verifierConfig.data, 1);
 
@@ -45,62 +45,66 @@ describe("Integration", () => {
     tvmBus.registerCode(new SourceItem()); // TODO?
   });
 
-  // it("Updates an existing source item contract's data", async () => {
-  //   const messageListBefore = await deployFakeSource(verifierRegistryContract, keys[0]);
+  it("Updates an existing source item contract's data", async () => {
+    const messageListBefore = await deployFakeSource(verifierRegistryContract, keys[0]);
 
-  //   const [versionBefore, urlBefore] = await readSourceItemContent(
-  //     messageListBefore[messageListBefore.length - 1].contractImpl as SourceItem
-  //   );
+    const [versionBefore, urlBefore] = await readSourceItemContent(
+      messageListBefore[messageListBefore.length - 1].contractImpl as SourceItem
+    );
 
-  //   expect(versionBefore).to.equal(1);
-  //   expect(urlBefore).to.equal("http://myurl.com");
+    expect(versionBefore).to.equal(1);
+    expect(urlBefore).to.equal("http://myurl.com");
 
-  //   const messageList = await deployFakeSource(
-  //     verifierRegistryContract,
-  //     keys[0],
-  //     "http://changed.com",
-  //     4
-  //   );
+    const messageList = await deployFakeSource(
+      verifierRegistryContract,
+      keys[0],
+      "http://changed.com",
+      4
+    );
 
-  //   const [version, url] = await readSourceItemContent(
-  //     messageList[messageList.length - 1].contractImpl as SourceItem
-  //   );
+    const [version, url] = await readSourceItemContent(
+      messageList[messageList.length - 1].contractImpl as SourceItem
+    );
 
-  //   expect(version).to.equal(4);
-  //   expect(url).to.equal("http://changed.com");
-  // });
+    expect(version).to.equal(4);
+    expect(url).to.equal("http://changed.com");
+  });
 
-  // it("Modifies the verifier registry address and is able to deploy a source item contract", async () => {
-  //   const alternativeKp = nacl.sign.keyPair.fromSeed(new Uint8Array(32).fill(1));
-  //   const alternativeVerifierRegistryContract = await VerifierRegistry.create(alternativeKp);
+  it("Modifies the verifier registry address and is able to deploy a source item contract", async () => {
+    const alternativeVerifierConfig = await genDefaultVerifierRegistryConfig(1);
+    const alternativeKp = alternativeVerifierConfig.keys[0];
+    const alternativeVerifierRegistryContract = await VerifierRegistry.createFromConfig(
+      alternativeVerifierConfig.data,
+      1
+    );
 
-  //   const changeVerifierRegistryMessage = sourcesRegistry.changeVerifierRegistry(
-  //     alternativeVerifierRegistryContract.address!
-  //   );
+    const changeVerifierRegistryMessage = sourcesRegistry.changeVerifierRegistry(
+      alternativeVerifierRegistryContract.address!
+    );
 
-  //   const res = await tvmBus.broadcast(
-  //     internalMessage({
-  //       from: admin,
-  //       body: changeVerifierRegistryMessage,
-  //       to: sourceRegistryContract.address!,
-  //     })
-  //   );
+    await tvmBus.broadcast(
+      internalMessage({
+        from: admin,
+        body: changeVerifierRegistryMessage,
+        to: sourceRegistryContract.address!,
+      })
+    );
 
-  //   tvmBus.registerContract(alternativeVerifierRegistryContract);
+    tvmBus.registerContract(alternativeVerifierRegistryContract);
 
-  //   const messageList = await deployFakeSource(alternativeVerifierRegistryContract, alternativeKp);
+    const messageList = await deployFakeSource(alternativeVerifierRegistryContract, alternativeKp);
 
-  //   const [version, url] = await readSourceItemContent(
-  //     messageList[messageList.length - 1].contractImpl as SourceItem
-  //   );
+    const [version, url] = await readSourceItemContent(
+      messageList[messageList.length - 1].contractImpl as SourceItem
+    );
 
-  //   expect(version).to.equal(1);
-  //   expect(url).to.equal("http://myurl.com");
-  // });
+    expect(version).to.equal(1);
+    expect(url).to.equal("http://myurl.com");
+  });
 
   async function deployFakeSource(
     verifierRegistryContract: VerifierRegistry,
-    kp: nacl.SignKeyPair,
+    kp: KeyPair,
     url = "http://myurl.com",
     version: number = 1
   ) {
@@ -124,7 +128,7 @@ describe("Integration", () => {
           // timeUnixTimeStamp(0),
           // kp.secretKey
           signatures: new Map<BN, Buffer>([
-            [new BN(keys[0].publicKey), sign(desc.hash(), keys[0].secretKey)],
+            [new BN(kp.publicKey), sign(desc.hash(), kp.secretKey)],
           ]),
         }),
         to: verifierRegistryContract.address!,
@@ -148,8 +152,6 @@ describe("Integration", () => {
       "http://myurl.com",
       2
     );
-
-    console.log(messageList, "SHAHAR")
 
     const [version, url] = await readSourceItemContent(
       messageList[messageList.length - 1].contractImpl as SourceItem

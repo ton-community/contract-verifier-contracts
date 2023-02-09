@@ -11,7 +11,7 @@ import { expect } from "chai";
 
 const ADMIN1_ADDRESS = randomAddress("ADMIN1");
 
-export async function genDefaultVerifierRegistryConfig() {
+export async function genDefaultVerifierRegistryConfig(quorum = 2) {
   let kp = await randomKeyPair();
   let kp2 = await randomKeyPair();
   let kp3 = await randomKeyPair();
@@ -23,7 +23,7 @@ export async function genDefaultVerifierRegistryConfig() {
           sha256BN("verifier1"),
           {
             admin: ADMIN1_ADDRESS,
-            quorum: 2,
+            quorum,
             name: "verifier1",
             pub_key_endpoints: new Map<BN, number>([
               [new BN(kp.publicKey), ip2num("1.2.3.0")],
