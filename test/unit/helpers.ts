@@ -89,3 +89,7 @@ export async function sendInternalMessageWithWallet(params: {
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+export function timeUnixTimeStamp(offsetMinute: number) {
+  return Math.floor(Date.now() / 1000 + offsetMinute * 60);
+}

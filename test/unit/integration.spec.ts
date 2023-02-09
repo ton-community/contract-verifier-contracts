@@ -11,10 +11,10 @@ import { TvmBus } from "ton-tvm-bus";
 import { SourcesRegistry } from "./sources-registry";
 import { VerifierRegistry } from "./verifier-registry";
 import { SourceItem } from "./source-item";
-import { timeUnixTimeStamp } from "./verifier-registry.spec";
+import { timeUnixTimeStamp } from "./helpers";
 import { toNano } from "ton";
-import { genDefaultVerifierRegistryConfig, sha256BN } from "./Registry.spec";
-import { buildMsgDescription, Queries } from "./RegistryData";
+import { genDefaultVerifierRegistryConfig, sha256BN } from "./verifier-registry.spec";
+import { buildMsgDescription, Queries } from "./verifier-registry";
 import { KeyPair, sign } from "ton-crypto";
 
 const VERIFIER_ID = "verifier1";
