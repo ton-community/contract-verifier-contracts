@@ -124,9 +124,6 @@ describe("Integration", () => {
         from: sender,
         body: Queries.forwardMessage({
           desc: desc,
-          // sourceRegistryContract.address!,
-          // timeUnixTimeStamp(0),
-          // kp.secretKey
           signatures: new Map<BN, Buffer>([
             [new BN(kp.publicKey), sign(desc.hash(), kp.secretKey)],
           ]),
