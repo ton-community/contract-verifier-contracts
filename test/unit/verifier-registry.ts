@@ -65,7 +65,6 @@ export class VerifierRegistry implements iTvmBusContract {
       throw new Error(`Unable to invoke get_verifiers on contract ${res.exit_code}`);
     }
     const [c] = res.result as [Slice];
-    // console.log(c.toCell().toString())
     const d = c.readDict(256, (s) => s);
 
     return Array.from(d.values()).map((v) => {
