@@ -4,7 +4,6 @@ import BN from "bn.js";
 chai.use(chaiBN(BN));
 
 import * as sourcesRegistry from "../../contracts/sources-registry";
-import * as verifierRegistry from "../../contracts/verifier-registry";
 import { internalMessage, randomAddress } from "./helpers";
 
 import nacl from "tweetnacl";
@@ -12,16 +11,20 @@ import { TvmBus } from "ton-tvm-bus";
 import { SourcesRegistry } from "./sources-registry";
 import { VerifierRegistry } from "./verifier-registry";
 import { SourceItem } from "./source-item";
-import { timeUnixTimeStamp } from "./verifier-registry.spec";
+import { timeUnixTimeStamp } from "./helpers";
 import { toNano } from "ton";
+import { genDefaultVerifierRegistryConfig, sha256BN } from "./verifier-registry.spec";
+import { buildMsgDescription, Queries } from "./verifier-registry";
+import { KeyPair, sign } from "ton-crypto";
 
-const VERIFIER_ID = "myverifier.com";
+const VERIFIER_ID = "verifier1";
 
 describe("Integration", () => {
   let sourceRegistryContract: SourcesRegistry;
   let verifierRegistryContract: VerifierRegistry;
   let tvmBus: TvmBus;
-  const kp = nacl.sign.keyPair.fromSeed(new Uint8Array(32).fill(0));
+  let keys: KeyPair[];
+
   const admin = randomAddress("admin");
 
   const debugTvmBusPool = () =>
@@ -30,7 +33,10 @@ describe("Integration", () => {
   beforeEach(async () => {
     tvmBus = new TvmBus();
 
-    verifierRegistryContract = await VerifierRegistry.create(kp);
+    const verifierConfig = await genDefaultVerifierRegistryConfig(1);
+    keys = verifierConfig.keys;
+    verifierRegistryContract = await VerifierRegistry.createFromConfig(verifierConfig.data, 1);
+
     tvmBus.registerContract(verifierRegistryContract);
 
     sourceRegistryContract = await SourcesRegistry.create(verifierRegistryContract.address!, admin);
@@ -40,7 +46,7 @@ describe("Integration", () => {
   });
 
   it("Updates an existing source item contract's data", async () => {
-    const messageListBefore = await deployFakeSource(verifierRegistryContract, kp);
+    const messageListBefore = await deployFakeSource(verifierRegistryContract, keys[0]);
 
     const [versionBefore, urlBefore] = await readSourceItemContent(
       messageListBefore[messageListBefore.length - 1].contractImpl as SourceItem
@@ -51,7 +57,7 @@ describe("Integration", () => {
 
     const messageList = await deployFakeSource(
       verifierRegistryContract,
-      kp,
+      keys[0],
       "http://changed.com",
       4
     );
@@ -65,14 +71,18 @@ describe("Integration", () => {
   });
 
   it("Modifies the verifier registry address and is able to deploy a source item contract", async () => {
-    const alternativeKp = nacl.sign.keyPair.fromSeed(new Uint8Array(32).fill(1));
-    const alternativeVerifierRegistryContract = await VerifierRegistry.create(alternativeKp);
+    const alternativeVerifierConfig = await genDefaultVerifierRegistryConfig(1);
+    const alternativeKp = alternativeVerifierConfig.keys[0];
+    const alternativeVerifierRegistryContract = await VerifierRegistry.createFromConfig(
+      alternativeVerifierConfig.data,
+      1
+    );
 
     const changeVerifierRegistryMessage = sourcesRegistry.changeVerifierRegistry(
       alternativeVerifierRegistryContract.address!
     );
 
-    const res = await tvmBus.broadcast(
+    await tvmBus.broadcast(
       internalMessage({
         from: admin,
         body: changeVerifierRegistryMessage,
@@ -94,20 +104,30 @@ describe("Integration", () => {
 
   async function deployFakeSource(
     verifierRegistryContract: VerifierRegistry,
-    kp: nacl.SignKeyPair,
+    kp: KeyPair,
     url = "http://myurl.com",
     version: number = 1
   ) {
+    const sender = randomAddress("someSender");
     const msg = sourcesRegistry.deploySource(VERIFIER_ID, "XXX123", url, version);
+
+    let desc = buildMsgDescription(
+      sha256BN(VERIFIER_ID),
+      1500,
+      sender,
+      sourceRegistryContract.address!,
+      msg
+    );
 
     return await tvmBus.broadcast(
       internalMessage({
-        body: verifierRegistry.sendMessage(
-          msg,
-          sourceRegistryContract.address!,
-          timeUnixTimeStamp(0),
-          kp.secretKey
-        ),
+        from: sender,
+        body: Queries.forwardMessage({
+          desc: desc,
+          signatures: new Map<BN, Buffer>([
+            [new BN(kp.publicKey), sign(desc.hash(), kp.secretKey)],
+          ]),
+        }),
         to: verifierRegistryContract.address!,
         value: toNano(0.5),
       })
@@ -123,7 +143,12 @@ describe("Integration", () => {
   }
 
   it("Deploys a source item contract", async () => {
-    const messageList = await deployFakeSource(verifierRegistryContract, kp, "http://myurl.com", 2);
+    const messageList = await deployFakeSource(
+      verifierRegistryContract,
+      keys[0],
+      "http://myurl.com",
+      2
+    );
 
     const [version, url] = await readSourceItemContent(
       messageList[messageList.length - 1].contractImpl as SourceItem

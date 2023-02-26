@@ -1,142 +1,885 @@
-import chai, { expect } from "chai";
-import chaiBN from "chai-bn";
+import { RegistryData, Verifier, Queries, buildMsgDescription } from "./verifier-registry";
+import { Cell, CellMessage, CommonMessageInfo, InternalMessage, toNano } from "ton";
+import { VerifierRegistry } from "./verifier-registry";
+import { SendMsgAction } from "ton-contract-executor";
 import BN from "bn.js";
-chai.use(chaiBN(BN));
+import { beginCell } from "ton/dist";
+import { sign } from "ton-crypto";
+import { createHash } from "crypto";
+import { randomAddress, randomKeyPair } from "./helpers";
+import { expect } from "chai";
 
-import nacl from "tweetnacl";
+const ADMIN1_ADDRESS = randomAddress("ADMIN1");
 
-import { Address, Slice, beginCell } from "ton";
-import { OutAction, SendMsgAction, SmartContract } from "ton-contract-executor";
-import * as verifierRegistry from "../../contracts/verifier-registry";
-import { internalMessage, randomAddress } from "./helpers";
-
-import { hex as verifierRegistryHex } from "../../build/verifier-registry.compiled.json";
-import { makeContract } from "./makeContract";
-
-export function timeUnixTimeStamp(offsetMinute: number) {
-  return Math.floor(Date.now() / 1000 + offsetMinute * 60);
+export async function genDefaultVerifierRegistryConfig(quorum = 2) {
+  let kp = await randomKeyPair();
+  let kp2 = await randomKeyPair();
+  let kp3 = await randomKeyPair();
+  return {
+    keys: [kp, kp2, kp3],
+    data: {
+      verifiers: new Map<BN, Verifier>([
+        [
+          sha256BN("verifier1"),
+          {
+            admin: ADMIN1_ADDRESS,
+            quorum,
+            name: "verifier1",
+            pub_key_endpoints: new Map<BN, number>([
+              [new BN(kp.publicKey), ip2num("1.2.3.0")],
+              [new BN(kp2.publicKey), ip2num("1.2.3.1")],
+              [new BN(kp3.publicKey), ip2num("1.2.3.2")],
+            ]),
+            marketingUrl: "https://myverifier.com",
+          },
+        ],
+      ]),
+    } as RegistryData,
+  };
 }
 
 describe("Verifier Registry", () => {
-  let verifierRegistryContract: { contract: SmartContract; address: Address };
-  const kp = nacl.sign.keyPair.fromSecretKey(
-    new Uint8Array(
-      Buffer.from(
-        "z2Wkf2sWS8arwVLSh+uH6FMA6uiIudDS/pyfPjWkVgPcMGPrkPwJL5re6dcdBXDpGkxzs2xt8fwDNd8evQ9FFw==",
-        "base64"
-      )
-    )
-  );
+  it("should update verifier", async () => {
+    let cfg = await genDefaultVerifierRegistryConfig();
+    let contract = await VerifierRegistry.createFromConfig(cfg.data, 1);
 
-  const sourcesRegistryAddress = randomAddress("sources-reg");
+    let kp3 = await randomKeyPair();
 
-  beforeEach(async () => {
-    verifierRegistryContract = await makeContract(
-      verifierRegistryHex,
-      verifierRegistry.data({
-        publicKey: Buffer.from(kp.publicKey),
+    let res = await contract.contract.sendInternalMessage(
+      new InternalMessage({
+        to: contract.address,
+        from: ADMIN1_ADDRESS,
+        value: toNano(1),
+        bounce: false,
+        body: new CommonMessageInfo({
+          body: new CellMessage(
+            Queries.updateVerifier({
+              id: sha256BN("verifier1"),
+              quorum: 7,
+              endpoints: new Map<BN, number>([[new BN(kp3.publicKey), ip2num("10.0.0.1")]]),
+              name: "verifier1",
+              marketingUrl: "https://myverifier.com",
+            })
+          ),
+        }),
       })
+    );
+
+    expect(res.exit_code).to.equal(0);
+    expect(res.type).to.equal("success");
+
+    let data = await contract.getVerifier(sha256BN("verifier1"));
+    let sets = (data.settings as Cell).beginParse();
+    let quorum = sets.readUint(8);
+    let settings = sets.readDict<number>(256, function (slice) {
+      return slice.readUint(32).toNumber();
+    });
+    let ip = settings.get(new BN(kp3.publicKey).toString());
+
+    console.log(res.gas_consumed);
+    expect(data.admin?.toFriendly()).to.equal(ADMIN1_ADDRESS.toFriendly());
+    expect(ip).to.equal(ip2num("10.0.0.1"));
+    expect(quorum.toNumber()).to.equal(7);
+
+    let excess = res.actionList[0] as SendMsgAction;
+    expect(excess.message.info.dest?.toFriendly()).to.equal(ADMIN1_ADDRESS.toFriendly());
+    expect(excess.mode).to.equal(64 + 2);
+
+    let body = excess.message.body.beginParse();
+    expect(body.readUint(32).toNumber()).to.equal(0);
+    expect(body.readBuffer(body.remaining / 8).toString()).to.equal(
+      "You successfully updated verifier data"
     );
   });
 
-  it("Refuses to send a message not signed by the public key", async () => {
-    const send = await verifierRegistryContract.contract.sendInternalMessage(
-      internalMessage({
-        body: verifierRegistry.sendMessage(
-          beginCell().storeUint(1, 1).endCell(),
-          sourcesRegistryAddress,
-          timeUnixTimeStamp(0),
-          nacl.sign.keyPair().secretKey
-        ),
+  it("should reject verifier updates with too large config", async () => {
+    let cfg = await genDefaultVerifierRegistryConfig();
+    let contract = await VerifierRegistry.createFromConfig(cfg.data, 1);
+
+    let kp3 = await randomKeyPair();
+
+    let res = await contract.contract.sendInternalMessage(
+      new InternalMessage({
+        to: contract.address,
+        from: ADMIN1_ADDRESS,
+        value: toNano(1),
+        bounce: false,
+        body: new CommonMessageInfo({
+          body: new CellMessage(
+            Queries.updateVerifier({
+              id: sha256BN("verifier1"),
+              quorum: 7,
+              endpoints: new Map<BN, number>(
+                Array(1000)
+                  .fill("")
+                  .map((_, i) => [new BN(kp3.publicKey).sub(new BN(i)), ip2num("10.0.0.0")])
+              ),
+              name: "verifier1",
+              marketingUrl: "https://myverifier.com",
+            })
+          ),
+        }),
       })
     );
 
-    expect(send.exit_code).to.equal(999);
+    expect(res.exit_code).to.equal(402);
   });
 
-  it("Refuses to send an empty message", async () => {
-    const send = await verifierRegistryContract.contract.sendInternalMessage(
-      internalMessage({
-        body: verifierRegistry.sendMessage(
-          beginCell().endCell(),
-          sourcesRegistryAddress,
-          timeUnixTimeStamp(0),
-          kp.secretKey
-        ),
+  it("should not update verifier", async () => {
+    let cfg = await genDefaultVerifierRegistryConfig();
+    let contract = await VerifierRegistry.createFromConfig(cfg.data, 1);
+
+    let kp3 = await randomKeyPair();
+
+    let res = await contract.contract.sendInternalMessage(
+      new InternalMessage({
+        to: contract.address,
+        from: randomAddress("someSeed"),
+        value: toNano(10000),
+        bounce: false,
+        body: new CommonMessageInfo({
+          body: new CellMessage(
+            Queries.updateVerifier({
+              id: sha256BN("verifier1"),
+              quorum: 7,
+              endpoints: new Map<BN, number>([[new BN(kp3.publicKey), ip2num("10.0.0.1")]]),
+              name: "verifier1",
+              marketingUrl: "https://myverifier.com",
+            })
+          ),
+        }),
       })
     );
 
-    // console.log(send);
-    expect(send.exit_code).to.equal(998);
+    expect(res.exit_code).to.equal(401);
   });
 
-  it("Refuses to send a message older than 10 minutes", async () => {
-    const send = await verifierRegistryContract.contract.sendInternalMessage(
-      internalMessage({
-        body: verifierRegistry.sendMessage(
-          beginCell().endCell(),
-          sourcesRegistryAddress,
-          timeUnixTimeStamp(-11),
-          kp.secretKey
-        ),
+  it("should not add verifier", async () => {
+    let cfg = await genDefaultVerifierRegistryConfig();
+    let contract = await VerifierRegistry.createFromConfig(cfg.data, 1);
+
+    let kp3 = await randomKeyPair();
+
+    let res = await contract.contract.sendInternalMessage(
+      new InternalMessage({
+        to: contract.address,
+        from: randomAddress("someSeed"),
+        value: toNano(1),
+        bounce: false,
+        body: new CommonMessageInfo({
+          body: new CellMessage(
+            Queries.updateVerifier({
+              id: sha256BN("verifier_new"),
+              quorum: 7,
+              endpoints: new Map<BN, number>([[new BN(kp3.publicKey), ip2num("10.0.0.1")]]),
+              name: "verifier_new",
+              marketingUrl: "https://myverifier.com",
+            })
+          ),
+        }),
       })
     );
 
-    expect(send.exit_code).to.equal(997);
+    expect(res.exit_code).to.equal(410);
   });
 
-  it("Sends a message to the specified contract", async () => {
-    const msg = beginCell().storeBuffer(Buffer.from("ipfs://deddy", "ascii")).endCell();
+  it("should remove verifier", async () => {
+    let cfg = await genDefaultVerifierRegistryConfig();
+    let contract = await VerifierRegistry.createFromConfig(cfg.data, 1);
 
-    // from: addr1 => [
-    //   0,
-    //   {
-    //     pks: [pk1,pk2,pk3,...,pk10] ;; to change this a mutlisig pk is needed,
-    //     multiSigThreshold: 3
-    //   },
-    //   10k,
-    //   seqno: 0
-    // ]
-
-    /*
-    client -> sourcesBinaryData+codecell hash to backend1
-    backend1 responds with => ipfs://[sources.json], sig(ipfs://[sources.json])
-    client -> ipfs://[sources.json]+codecell hash to backend2
-    backend2 responds with => ipfs://[sources.json], sig(ipfs://[sources.json])
-    client -> ipfs://[sources.json]+codecell hash+signatures to backend3
-    backend3:
-      - reads multisig threshold from contract, sees that it == 3, uploads signatures
-      - responds with => ipfs://[sources.json], sig(ipfs://[sources.json]), ipfs://[signatures.json]
-    client -> verifier registry => ipfs://[sources.json], [sigs], ipfs://[signatures.json]
-    */
-
-    // [
-    //   signatures, // [[sig1(msg),pk1], [sig2(msg),pk2], [sig3(msg), pk3]] ;; buffer("ipfs://[sigs.json]")
-    //   msg // 162137233, buffer("ipfs://[sources.json]")
-    // ]
-
-    const send = await verifierRegistryContract.contract.sendInternalMessage(
-      internalMessage({
-        body: verifierRegistry.sendMessage(
-          msg,
-          randomAddress("myaddr"),
-          timeUnixTimeStamp(0),
-          kp.secretKey
-        ),
+    let res = await contract.contract.sendInternalMessage(
+      new InternalMessage({
+        to: contract.address,
+        from: ADMIN1_ADDRESS,
+        value: toNano(1),
+        bounce: false,
+        body: new CommonMessageInfo({
+          body: new CellMessage(
+            Queries.removeVerifier({
+              id: sha256BN("verifier1"),
+            })
+          ),
+        }),
       })
     );
 
-    expect(send.exit_code).to.equal(0);
-    expect(send.type).to.equal("success");
+    expect(res.exit_code).to.equal(0);
+    expect(res.type).to.equal("success");
 
-    const messageToSourcesReg = (send.actionList[0] as SendMsgAction).message;
+    let exit = res.actionList[0] as SendMsgAction;
+    expect(exit.message.info.dest?.toFriendly()).to.equal(ADMIN1_ADDRESS.toFriendly());
+    expect(exit.message.info.type).to.equal("internal");
+    if (exit.message.info.type === "internal") {
+      expect(exit.message.info.value.coins.toNumber()).to.equal(
+        toNano(10000).sub(toNano("0.2")).toNumber()
+      );
+    }
+    expect(exit.mode).to.equal(64);
 
-    // Message is sent to sources registry
-    expect(messageToSourcesReg.info.dest!.toFriendly()).to.equal(
-      randomAddress("myaddr").toFriendly()
+    let body = exit.message.body.beginParse();
+    expect(body.readUint(32).toNumber()).to.equal(0);
+    expect(body.readBuffer(body.remaining / 8).toString()).to.equal(
+      "Withdrawal and exit from the verifier registry"
     );
 
-    // Original message is forwarded as-is
-    expect(messageToSourcesReg.body.hash().toString()).to.equal(msg.hash().toString());
+    let data = await contract.getVerifier(sha256BN("verifier1"));
+    expect(data.settings).to.equal(null);
+  });
+
+  it("should not remove verifier", async () => {
+    let cfg = await genDefaultVerifierRegistryConfig();
+    let contract = await VerifierRegistry.createFromConfig(cfg.data, 1);
+
+    let res = await contract.contract.sendInternalMessage(
+      new InternalMessage({
+        to: contract.address,
+        from: randomAddress("someSeed"),
+        value: toNano(1),
+        bounce: false,
+        body: new CommonMessageInfo({
+          body: new CellMessage(
+            Queries.removeVerifier({
+              id: sha256BN("verifier1"),
+            })
+          ),
+        }),
+      })
+    );
+
+    expect(res.exit_code).to.equal(401);
+  });
+
+  it("should not remove verifier, not found", async () => {
+    let cfg = await genDefaultVerifierRegistryConfig();
+    let contract = await VerifierRegistry.createFromConfig(cfg.data, 1);
+
+    let res = await contract.contract.sendInternalMessage(
+      new InternalMessage({
+        to: contract.address,
+        from: randomAddress("someSeed"),
+        value: toNano(1),
+        bounce: false,
+        body: new CommonMessageInfo({
+          body: new CellMessage(
+            Queries.removeVerifier({
+              id: new BN(223),
+            })
+          ),
+        }),
+      })
+    );
+
+    expect(res.exit_code).to.equal(404);
+  });
+
+  it("should forward message", async () => {
+    let cfg = await genDefaultVerifierRegistryConfig();
+    let contract = await VerifierRegistry.createFromConfig(cfg.data, 1);
+    let src = randomAddress("someSeed");
+    let dst = randomAddress("someSeed");
+    let msgBody = beginCell().storeUint(777, 32).endCell();
+
+    let desc = buildMsgDescription(sha256BN("verifier1"), 1500, src, dst, msgBody);
+
+    let res = await contract.contract.sendInternalMessage(
+      new InternalMessage({
+        to: contract.address,
+        from: src,
+        value: toNano(3),
+        bounce: false,
+        body: new CommonMessageInfo({
+          body: new CellMessage(
+            Queries.forwardMessage({
+              desc,
+              signatures: new Map<BN, Buffer>([
+                [new BN(cfg.keys[0].publicKey), sign(desc.hash(), cfg.keys[0].secretKey)],
+                [new BN(cfg.keys[1].publicKey), sign(desc.hash(), cfg.keys[1].secretKey)],
+              ]),
+            })
+          ),
+        }),
+      })
+    );
+
+    expect(res.exit_code).to.equal(0);
+    expect(res.type).to.equal("success");
+
+    let excess = res.actionList[0] as SendMsgAction;
+    expect(excess.message.info.dest?.toFriendly()).to.equal(dst.toFriendly());
+    expect(excess.mode).to.equal(64);
+
+    let body = excess.message.body.beginParse();
+    expect(body.readUint(32).toNumber()).to.equal(777);
+  });
+
+  it("should forward message, 2 out of 3 correct, quorum = 2", async () => {
+    let cfg = await genDefaultVerifierRegistryConfig();
+    let contract = await VerifierRegistry.createFromConfig(cfg.data, 1);
+    let src = randomAddress("someSeed");
+    let dst = randomAddress("someSeed");
+    let msgBody = beginCell().storeUint(777, 32).endCell();
+
+    let desc = buildMsgDescription(sha256BN("verifier1"), 1500, src, dst, msgBody);
+
+    let res = await contract.contract.sendInternalMessage(
+      new InternalMessage({
+        to: contract.address,
+        from: src,
+        value: toNano(3),
+        bounce: false,
+        body: new CommonMessageInfo({
+          body: new CellMessage(
+            Queries.forwardMessage({
+              desc,
+              signatures: new Map<BN, Buffer>([
+                [new BN(cfg.keys[0].publicKey), sign(desc.hash(), cfg.keys[0].secretKey)],
+                [new BN(cfg.keys[1].publicKey), sign(desc.hash(), cfg.keys[1].secretKey)],
+                [new BN(cfg.keys[2].publicKey), sign(desc.hash(), cfg.keys[1].secretKey)],
+              ]),
+            })
+          ),
+        }),
+      })
+    );
+
+    expect(res.exit_code).to.equal(0);
+    expect(res.type).to.equal("success");
+
+    let excess = res.actionList[0] as SendMsgAction;
+    expect(excess.message.info.dest?.toFriendly()).to.equal(dst.toFriendly());
+    expect(excess.mode).to.equal(64);
+
+    let body = excess.message.body.beginParse();
+    expect(body.readUint(32).toNumber()).to.equal(777);
+  });
+
+  it("should not forward message, 1 sign of 2", async () => {
+    let cfg = await genDefaultVerifierRegistryConfig();
+    let contract = await VerifierRegistry.createFromConfig(cfg.data, 1);
+    let src = randomAddress("someSeed");
+    let dst = randomAddress("someSeed");
+    let msgBody = beginCell().storeUint(777, 32).endCell();
+
+    let desc = buildMsgDescription(sha256BN("verifier1"), 1500, src, dst, msgBody);
+
+    let res = await contract.contract.sendInternalMessage(
+      new InternalMessage({
+        to: contract.address,
+        from: src,
+        value: toNano(3),
+        bounce: false,
+        body: new CommonMessageInfo({
+          body: new CellMessage(
+            Queries.forwardMessage({
+              desc,
+              signatures: new Map<BN, Buffer>([
+                [new BN(cfg.keys[0].publicKey), sign(desc.hash(), cfg.keys[0].secretKey)],
+              ]),
+            })
+          ),
+        }),
+      })
+    );
+
+    expect(res.exit_code).to.equal(413);
+  });
+
+  it("should not forward message, 2 same signs", async () => {
+    let cfg = await genDefaultVerifierRegistryConfig();
+    let contract = await VerifierRegistry.createFromConfig(cfg.data, 1);
+    let src = randomAddress("someSeed");
+    let dst = randomAddress("someSeed");
+    let msgBody = beginCell().storeUint(777, 32).endCell();
+
+    let desc = buildMsgDescription(sha256BN("verifier1"), 1500, src, dst, msgBody);
+
+    let res = await contract.contract.sendInternalMessage(
+      new InternalMessage({
+        to: contract.address,
+        from: src,
+        value: toNano(3),
+        bounce: false,
+        body: new CommonMessageInfo({
+          body: new CellMessage(
+            Queries.forwardMessage({
+              desc,
+              signatures: new Map<BN, Buffer>([
+                [new BN(cfg.keys[0].publicKey), sign(desc.hash(), cfg.keys[0].secretKey)],
+                [new BN(cfg.keys[0].publicKey), sign(desc.hash(), cfg.keys[0].secretKey)],
+              ]),
+            })
+          ),
+        }),
+      })
+    );
+
+    expect(res.exit_code).to.equal(413);
+  });
+
+  it("should not forward message, no signs", async () => {
+    let cfg = await genDefaultVerifierRegistryConfig();
+    let contract = await VerifierRegistry.createFromConfig(cfg.data, 1);
+    let src = randomAddress("someSeed");
+    let dst = randomAddress("someSeed");
+    let msgBody = beginCell().storeUint(777, 32).endCell();
+
+    let desc = buildMsgDescription(sha256BN("verifier1"), 1500, src, dst, msgBody);
+
+    let res = await contract.contract.sendInternalMessage(
+      new InternalMessage({
+        to: contract.address,
+        from: src,
+        value: toNano(3),
+        bounce: false,
+        body: new CommonMessageInfo({
+          body: new CellMessage(
+            Queries.forwardMessage({
+              desc,
+              signatures: new Map<BN, Buffer>([]),
+            })
+          ),
+        }),
+      })
+    );
+
+    expect(res.type).to.equal("failed");
+  });
+
+  it("should not forward message, 2 signs, 1 invalid", async () => {
+    let cfg = await genDefaultVerifierRegistryConfig();
+    let contract = await VerifierRegistry.createFromConfig(cfg.data, 1);
+    let src = randomAddress("someSeed");
+    let dst = randomAddress("someSeed");
+    let msgBody = beginCell().storeUint(777, 32).endCell();
+
+    let desc = buildMsgDescription(sha256BN("verifier1"), 1500, src, dst, msgBody);
+
+    let res = await contract.contract.sendInternalMessage(
+      new InternalMessage({
+        to: contract.address,
+        from: src,
+        value: toNano(3),
+        bounce: false,
+        body: new CommonMessageInfo({
+          body: new CellMessage(
+            Queries.forwardMessage({
+              desc,
+              signatures: new Map<BN, Buffer>([
+                [new BN(cfg.keys[0].publicKey), sign(desc.hash(), cfg.keys[0].secretKey)],
+                [new BN(cfg.keys[1].publicKey), sign(desc.hash(), cfg.keys[0].secretKey)],
+              ]),
+            })
+          ),
+        }),
+      })
+    );
+
+    expect(res.exit_code).to.equal(413);
+  });
+
+  it("should not forward message, expired", async () => {
+    let cfg = await genDefaultVerifierRegistryConfig();
+    let contract = await VerifierRegistry.createFromConfig(cfg.data, 1);
+    let src = randomAddress("someSeed");
+    let dst = randomAddress("someSeed");
+    let msgBody = beginCell().storeUint(777, 32).endCell();
+
+    let desc = buildMsgDescription(sha256BN("verifier1"), 999, src, dst, msgBody);
+
+    let res = await contract.contract.sendInternalMessage(
+      new InternalMessage({
+        to: contract.address,
+        from: src,
+        value: toNano(3),
+        bounce: false,
+        body: new CommonMessageInfo({
+          body: new CellMessage(
+            Queries.forwardMessage({
+              desc,
+              signatures: new Map<BN, Buffer>([
+                [new BN(cfg.keys[0].publicKey), sign(desc.hash(), cfg.keys[0].secretKey)],
+                [new BN(cfg.keys[1].publicKey), sign(desc.hash(), cfg.keys[1].secretKey)],
+              ]),
+            })
+          ),
+        }),
+      })
+    );
+
+    expect(res.exit_code).to.equal(411);
+  });
+
+  it("should not forward message, wrong sender", async () => {
+    let cfg = await genDefaultVerifierRegistryConfig();
+    let contract = await VerifierRegistry.createFromConfig(cfg.data, 1);
+    let src = randomAddress("someSeed");
+    let dst = randomAddress("someSeed2");
+    let msgBody = beginCell().storeUint(777, 32).endCell();
+
+    let desc = buildMsgDescription(
+      sha256BN("verifier1"),
+      1500,
+      randomAddress("someSeed3"),
+      dst,
+      msgBody
+    );
+
+    let res = await contract.contract.sendInternalMessage(
+      new InternalMessage({
+        to: contract.address,
+        from: src,
+        value: toNano(3),
+        bounce: false,
+        body: new CommonMessageInfo({
+          body: new CellMessage(
+            Queries.forwardMessage({
+              desc,
+              signatures: new Map<BN, Buffer>([
+                [new BN(cfg.keys[0].publicKey), sign(desc.hash(), cfg.keys[0].secretKey)],
+                [new BN(cfg.keys[1].publicKey), sign(desc.hash(), cfg.keys[1].secretKey)],
+              ]),
+            })
+          ),
+        }),
+      })
+    );
+
+    expect(res.exit_code).to.equal(414);
+  });
+
+  it("should not forward message, unknown verifier", async () => {
+    let cfg = await genDefaultVerifierRegistryConfig();
+    let contract = await VerifierRegistry.createFromConfig(cfg.data, 1);
+    let src = randomAddress("someSeed");
+    let dst = randomAddress("someSeed");
+    let msgBody = beginCell().storeUint(777, 32).endCell();
+
+    let desc = buildMsgDescription(new BN(333), 1500, src, dst, msgBody);
+
+    let res = await contract.contract.sendInternalMessage(
+      new InternalMessage({
+        to: contract.address,
+        from: src,
+        value: toNano(3),
+        bounce: false,
+        body: new CommonMessageInfo({
+          body: new CellMessage(
+            Queries.forwardMessage({
+              desc,
+              signatures: new Map<BN, Buffer>([
+                [new BN(cfg.keys[0].publicKey), sign(desc.hash(), cfg.keys[0].secretKey)],
+                [new BN(cfg.keys[1].publicKey), sign(desc.hash(), cfg.keys[1].secretKey)],
+              ]),
+            })
+          ),
+        }),
+      })
+    );
+
+    expect(res.exit_code).to.equal(404);
+  });
+
+  it("should add new verifier", async () => {
+    let cfg = await genDefaultVerifierRegistryConfig();
+    let contract = await VerifierRegistry.createFromConfig(cfg.data, 1);
+    let user = randomAddress("someSeed");
+
+    let kp3 = await randomKeyPair();
+
+    let res = await contract.contract.sendInternalMessage(
+      new InternalMessage({
+        to: contract.address,
+        from: user,
+        value: toNano(10005),
+        bounce: false,
+        body: new CommonMessageInfo({
+          body: new CellMessage(
+            Queries.updateVerifier({
+              id: sha256BN("verifier2"),
+              quorum: 7,
+              endpoints: new Map<BN, number>([[new BN(kp3.publicKey), ip2num("10.0.0.1")]]),
+              name: "verifier2",
+              marketingUrl: "https://myverifier.com",
+            })
+          ),
+        }),
+      })
+    );
+
+    expect(res.exit_code).to.equal(0);
+    expect(res.type).to.equal("success");
+
+    let data = await contract.getVerifier(sha256BN("verifier2"));
+    let sets = (data.settings as Cell).beginParse();
+    let quorum = sets.readUint(8);
+    let settings = sets.readDict<number>(256, function (slice) {
+      return slice.readUint(32).toNumber();
+    });
+    let ip = settings.get(new BN(kp3.publicKey).toString());
+
+    console.log(res.gas_consumed);
+    expect(data.admin?.toFriendly()).to.equal(user.toFriendly());
+    expect(ip).to.equal(ip2num("10.0.0.1"));
+    expect(quorum.toNumber()).to.equal(7);
+
+    let excess = res.actionList[0] as SendMsgAction;
+    expect(excess.message.info.dest?.toFriendly()).to.equal(user.toFriendly());
+    expect(excess.message.info.type).to.equal("internal");
+    if (excess.message.info.type === "internal") {
+      expect(excess.message.info.value.coins.toNumber()).to.equal(toNano(5).toNumber());
+    }
+    expect(excess.mode).to.equal(1);
+
+    let body = excess.message.body.beginParse();
+    expect(body.readUint(32).toNumber()).to.equal(0);
+    expect(body.readBuffer(body.remaining / 8).toString()).to.equal(
+      "You were successfully registered as a verifier"
+    );
+  });
+
+  it("should not add new verifier, 20 limit", async () => {
+    let cfg = await genDefaultVerifierRegistryConfig();
+    let contract = await VerifierRegistry.createFromConfig(cfg.data, 20);
+    let user = randomAddress("someSeed");
+
+    let kp3 = await randomKeyPair();
+
+    let res = await contract.contract.sendInternalMessage(
+      new InternalMessage({
+        to: contract.address,
+        from: user,
+        value: toNano(10005),
+        bounce: false,
+        body: new CommonMessageInfo({
+          body: new CellMessage(
+            Queries.updateVerifier({
+              id: sha256BN("verifier2"),
+              quorum: 7,
+              endpoints: new Map<BN, number>([[new BN(kp3.publicKey), ip2num("10.0.0.1")]]),
+              name: "verifier2",
+              marketingUrl: "https://myverifier.com",
+            })
+          ),
+        }),
+      })
+    );
+
+    expect(res.exit_code).to.equal(419);
+  });
+
+  it("full scenario", async () => {
+    let cfg = await genDefaultVerifierRegistryConfig();
+    let contract = await VerifierRegistry.createFromConfig(cfg.data, 1);
+    let user = randomAddress("someSeed");
+
+    let kp3 = await randomKeyPair();
+
+    // add
+    let res = await contract.contract.sendInternalMessage(
+      new InternalMessage({
+        to: contract.address,
+        from: user,
+        value: toNano(10005),
+        bounce: false,
+        body: new CommonMessageInfo({
+          body: new CellMessage(
+            Queries.updateVerifier({
+              id: sha256BN("verifier2"),
+              quorum: 7,
+              endpoints: new Map<BN, number>([[new BN(kp3.publicKey), ip2num("10.0.0.1")]]),
+              name: "verifier2",
+              marketingUrl: "https://myverifier.com",
+            })
+          ),
+        }),
+      })
+    );
+
+    expect(res.exit_code).to.equal(0);
+    expect(res.type).to.equal("success");
+
+    let data = await contract.getVerifier(sha256BN("verifier2"));
+    let sets = (data.settings as Cell).beginParse();
+    let quorum = sets.readUint(8);
+    let settings = sets.readDict<number>(256, function (slice) {
+      return slice.readUint(32).toNumber();
+    });
+    let ip = settings.get(new BN(kp3.publicKey).toString());
+
+    expect(ip).to.equal(ip2num("10.0.0.1"));
+    expect(quorum.toNumber()).to.equal(7);
+
+    let verifiersNum = await contract.getVerifiersNum();
+    expect(verifiersNum).to.equal(2);
+
+    // update
+    res = await contract.contract.sendInternalMessage(
+      new InternalMessage({
+        to: contract.address,
+        from: user,
+        value: toNano(5),
+        bounce: false,
+        body: new CommonMessageInfo({
+          body: new CellMessage(
+            Queries.updateVerifier({
+              id: sha256BN("verifier2"),
+              quorum: 1,
+              endpoints: new Map<BN, number>([[new BN(kp3.publicKey), ip2num("10.0.0.2")]]),
+              name: "verifier2",
+              marketingUrl: "https://myverifier.com",
+            })
+          ),
+        }),
+      })
+    );
+
+    data = await contract.getVerifier(sha256BN("verifier2"));
+    sets = (data.settings as Cell).beginParse();
+    quorum = sets.readUint(8);
+    settings = sets.readDict<number>(256, function (slice) {
+      return slice.readUint(32).toNumber();
+    });
+    ip = settings.get(new BN(kp3.publicKey).toString());
+
+    expect(ip).to.equal(ip2num("10.0.0.2"));
+    expect(quorum.toNumber()).to.equal(1);
+
+    verifiersNum = await contract.getVerifiersNum();
+    expect(verifiersNum).to.equal(2);
+
+    // forward
+    let src = randomAddress("someSeed");
+    let dst = randomAddress("someSeed");
+    let msgBody = beginCell().storeUint(777, 32).endCell();
+
+    let desc = buildMsgDescription(sha256BN("verifier2"), 1500, src, dst, msgBody);
+
+    res = await contract.contract.sendInternalMessage(
+      new InternalMessage({
+        to: contract.address,
+        from: src,
+        value: toNano(3),
+        bounce: false,
+        body: new CommonMessageInfo({
+          body: new CellMessage(
+            Queries.forwardMessage({
+              desc,
+              signatures: new Map<BN, Buffer>([
+                [new BN(kp3.publicKey), sign(desc.hash(), kp3.secretKey)],
+              ]),
+            })
+          ),
+        }),
+      })
+    );
+
+    expect(res.exit_code).to.equal(0);
+
+    let excess = res.actionList[0] as SendMsgAction;
+    expect(excess.message.info.dest?.toFriendly()).to.equal(dst.toFriendly());
+    expect(excess.mode).to.equal(64);
+
+    // remove
+    res = await contract.contract.sendInternalMessage(
+      new InternalMessage({
+        to: contract.address,
+        from: user,
+        value: toNano(1),
+        bounce: false,
+        body: new CommonMessageInfo({
+          body: new CellMessage(
+            Queries.removeVerifier({
+              id: sha256BN("verifier2"),
+            })
+          ),
+        }),
+      })
+    );
+
+    expect(res.exit_code).to.equal(0);
+
+    verifiersNum = await contract.getVerifiersNum();
+    expect(verifiersNum).to.equal(1);
+
+    // should not forward
+
+    res = await contract.contract.sendInternalMessage(
+      new InternalMessage({
+        to: contract.address,
+        from: src,
+        value: toNano(3),
+        bounce: false,
+        body: new CommonMessageInfo({
+          body: new CellMessage(
+            Queries.forwardMessage({
+              desc,
+              signatures: new Map<BN, Buffer>([
+                [new BN(kp3.publicKey), sign(desc.hash(), kp3.secretKey)],
+              ]),
+            })
+          ),
+        }),
+      })
+    );
+
+    expect(res.exit_code).to.equal(404);
+  });
+
+  it("should retrieve verifiers data", async () => {
+    let contract = await VerifierRegistry.createFromConfig({ verifiers: new Map() }, 0);
+    let user = randomAddress("someSeed");
+
+    let kp3 = await randomKeyPair();
+
+    const verifierConfig = [
+      ["verifier1", "http://verifier1.com"],
+      ["verifier2", "http://verifier2.com"],
+      ["verifier3", "http://verifier3.com"],
+    ];
+
+    for (const [name, url] of verifierConfig) {
+      await contract.contract.sendInternalMessage(
+        new InternalMessage({
+          to: contract.address,
+          from: user,
+          value: toNano(10005),
+          bounce: false,
+          body: new CommonMessageInfo({
+            body: new CellMessage(
+              Queries.updateVerifier({
+                id: sha256BN(name),
+                quorum: 7,
+                endpoints: new Map<BN, number>([[new BN(kp3.publicKey), ip2num("10.0.0.1")]]),
+                name: name,
+                marketingUrl: url,
+              })
+            ),
+          }),
+        })
+      );
+    }
+
+    const verifiers = await contract.getVerifiers();
+
+    for (const [name, url] of verifierConfig) {
+      const actualVerifier = verifiers.find((v) => v.name === name)!;
+      const [pub_key, ipnum] = actualVerifier.pub_key_endpoints.entries().next().value;
+
+      expect(ipnum).to.equal(ip2num("10.0.0.1"));
+      expect(pub_key.toString()).to.equal(new BN(kp3.publicKey).toString());
+      expect(actualVerifier.admin.toFriendly()).to.equal(user.toFriendly());
+      expect(actualVerifier.quorum).to.equal(7);
+      expect(actualVerifier.name).to.equal(name);
+      expect(actualVerifier.marketingUrl).to.equal(url);
+    }
   });
 });
+
+export function sha256BN(name: string) {
+  return new BN(createHash("sha256").update(name).digest());
+}
+
+function ip2num(ip: string) {
+  let d = ip.split(".");
+  return ((+d[0] * 256 + +d[1]) * 256 + +d[2]) * 256 + +d[3];
+}
