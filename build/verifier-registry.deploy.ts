@@ -20,4 +20,6 @@ export async function postDeployTest(
   walletContract: WalletContract,
   secretKey: Buffer,
   contractAddress: Address
-) {}
+) {
+  
+}
