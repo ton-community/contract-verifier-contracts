@@ -1,5 +1,5 @@
-import { Address, WalletContract } from "ton";
-import { buildRegistryDataCell } from "../test/unit/verifier-registry";
+import { Address, WalletContractV3R2 } from "ton";
+import { buildRegistryDataCell } from "../wrappers/verifier-registry";
 
 export function timeUnixTimeStamp(offsetMinute: number) {
   return Math.floor(Date.now() / 1000 + offsetMinute * 60);
@@ -17,9 +17,7 @@ export function initMessage() {
 
 // optional end-to-end sanity test for the actual on-chain contract to see it is actually working on-chain
 export async function postDeployTest(
-  walletContract: WalletContract,
+  walletContract: WalletContractV3R2,
   secretKey: Buffer,
   contractAddress: Address
-) {
-  
-}
+) {}

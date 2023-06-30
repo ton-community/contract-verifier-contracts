@@ -1,14 +1,14 @@
 import * as sourcesRegistry from "../contracts/sources-registry";
-import { Address, toNano, TupleSlice, WalletContract } from "ton";
-import { sendInternalMessageWithWallet, zeroAddress } from "../test/unit/helpers";
+import { Address, toNano, WalletContractV3R2 } from "ton";
+import { zeroAddress } from "../test/unit/helpers";
 
 // return the init Cell of the contract storage (according to load_data() contract method)
 export function initData() {
   return sourcesRegistry.data({
     verifierRegistryAddress: zeroAddress,
     admin: Address.parse("EQBnLd2ta0Od6LkhaeO1zDQ4wcvoUReK8Z8k881BIMrTfjb8"),
-    maxTons: toNano(1.1),
-    minTons: toNano(0.065),
+    maxTons: toNano("1.1"),
+    minTons: toNano("0.065"),
   });
 }
 
@@ -19,7 +19,7 @@ export function initMessage() {
 
 // optional end-to-end sanity test for the actual on-chain contract to see it is actually working on-chain
 export async function postDeployTest(
-  walletContract: WalletContract,
+  walletContract: WalletContractV3R2,
   secretKey: Buffer,
   contractAddress: Address
 ) {}
