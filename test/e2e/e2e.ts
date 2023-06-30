@@ -3,19 +3,17 @@ import {
   Address,
   beginCell,
   Cell,
-  CellMessage,
-  CommonMessageInfo,
-  InternalMessage,
   SendMode,
-  StateInit,
   toNano,
   TonClient,
-  WalletContract,
-  WalletV3R2Source,
+  WalletContractV3R2,
+  OpenedContract,
 } from "ton";
 import { getHttpEndpoint } from "@orbs-network/ton-gateway";
-import { KeyPair, mnemonicNew, mnemonicToWalletKey } from "ton-crypto";
-import BN from "bn.js";
+import { KeyPair, mnemonicToWalletKey } from "ton-crypto";
+import { assert } from "chai";
+import { Sha256 } from "@aws-crypto/sha256-js";
+
 import {
   changeVerifierRegistry,
   changeAdmin as changeAdminOp,
@@ -24,14 +22,12 @@ import {
 } from "../../contracts/sources-registry";
 import { zeroAddress } from "../unit/helpers";
 import { makeGetCall } from "./makeGetCall";
-import { assert } from "chai";
+import { toBigIntBE } from "bigint-buffer";
 
 import { hex as actualSourceRegistryHex } from "../../build/sources-registry.compiled.json";
 import { hex as dummySourceRegistryHex } from "../../build/sources-registry-only-set-code.compiled.json";
 import { hex as actualSourceItemHex } from "../../build/source-item.compiled.json";
 import { hex as dummySourceItemHex } from "../../build/source-item-dummy.compiled.json";
-import { deploySource } from "../../contracts/sources-registry";
-import { Sha256 } from "@aws-crypto/sha256-js";
 
 dotenv.config();
 
@@ -41,9 +37,8 @@ async function getWallet(tc: TonClient, mnemonic: string[]) {
   const deployerMnemonic = mnemonic.join(" "); //(await mnemonicNew(24)).join(" ");
 
   const walletKey = await mnemonicToWalletKey(deployerMnemonic.split(" "));
-  const walletContract = WalletContract.create(
-    tc,
-    WalletV3R2Source.create({ publicKey: walletKey.publicKey, workchain: 0 })
+  const walletContract = tc.open(
+    WalletContractV3R2.create({ publicKey: walletKey.publicKey, workchain: 0 })
   );
   return { walletContract, walletKey };
 }
@@ -51,21 +46,30 @@ async function getWallet(tc: TonClient, mnemonic: string[]) {
 async function makeTXN(
   wallet: WalletStruct,
   client: TonClient,
-  { to, value, message }: { to: Address; value: BN; message: Cell }
+  { dest, value, message }: { dest: Address; value: bigint; message: Cell }
 ) {
-  const seqnoBefore = await wallet.walletContract.getSeqNo();
+  const seqnoBefore = await wallet.walletContract.getSeqno();
   const transfer = wallet.walletContract.createTransfer({
     secretKey: wallet.walletKey.secretKey,
     seqno: seqnoBefore,
-    sendMode: SendMode.PAY_GAS_SEPARATLY + SendMode.IGNORE_ERRORS,
-    order: new InternalMessage({
-      to,
-      value,
-      bounce: false,
-      body: new CommonMessageInfo({
-        body: new CellMessage(message),
-      }),
-    }),
+    sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+    messages: [
+      {
+        info: {
+          type: "internal",
+          dest,
+          value: { coins: value },
+          bounce: false,
+          bounced: false,
+          ihrDisabled: true,
+          ihrFee: BigInt(0),
+          forwardFee: BigInt(0),
+          createdAt: 0,
+          createdLt: BigInt(0),
+        },
+        body: message,
+      },
+    ],
   });
   await client.sendExternalMessage(wallet.walletContract, transfer);
 
@@ -73,13 +77,13 @@ async function makeTXN(
 
   while (true) {
     await sleep(2000);
-    const seqnoAfter = await wallet.walletContract.getSeqNo();
+    const seqnoAfter = await wallet.walletContract.getSeqno();
     if (seqnoAfter > seqnoBefore) return;
   }
 }
 
 type WalletStruct = {
-  walletContract: WalletContract;
+  walletContract: OpenedContract<WalletContractV3R2>;
   walletKey: KeyPair;
 };
 
@@ -95,41 +99,38 @@ async function changeVerifierRegistryTests(
       sourcesRegistryContract,
       "get_verifier_registry_address",
       [],
-      (s) => (s[0] as Cell).beginParse().readAddress()!,
+      (s) => (s[0] as Cell).beginParse().loadAddress()!,
       tc
     );
   }
 
   async function changeVerifier(address: Address) {
     await makeTXN(wallet, tc, {
-      to: sourcesRegistryContract,
-      value: toNano(0.01),
+      dest: sourcesRegistryContract,
+      value: toNano("0.01"),
       message: changeVerifierRegistry(address),
     });
   }
 
   const verifierBefore = await getVerifierRegistryAddress();
-  console.log("Current verifier address is: ", verifierBefore.toFriendly());
+  console.log("Current verifier address is: ", verifierBefore.toString());
 
   await changeVerifier(zeroAddress);
 
   const verifierAfter = await getVerifierRegistryAddress();
-  console.log("After change to zero addr - verifier address is: ", verifierAfter.toFriendly());
+  console.log("After change to zero addr - verifier address is: ", verifierAfter.toString());
 
-  assert(
-    verifierAfter.toFriendly() === zeroAddress.toFriendly(),
-    "verifier registry address should be zero address"
-  );
+  assert(verifierAfter.equals(zeroAddress), "verifier registry address should be zero address");
 
   await changeVerifier(ACTUAL_VERIFIER_REGISTRY);
   const verifierReverted = await getVerifierRegistryAddress();
 
   assert(
-    verifierReverted.toFriendly() === ACTUAL_VERIFIER_REGISTRY.toFriendly(),
+    verifierReverted.equals(ACTUAL_VERIFIER_REGISTRY),
     "verifier registry address should be reverted to original address"
   );
 
-  console.log("After revert - verifier address is: ", verifierReverted.toFriendly());
+  console.log("After revert - verifier address is: ", verifierReverted.toString());
 }
 
 async function replaceAdmin(
@@ -145,38 +146,38 @@ async function replaceAdmin(
       sourcesRegistryContract,
       "get_admin_address",
       [],
-      (s) => (s[0] as Cell).beginParse().readAddress()!,
+      (s) => (s[0] as Cell).beginParse().loadAddress()!,
       tc
     );
   }
 
   async function replaceAdminTXN(address: Address) {
     await makeTXN(wallet, tc, {
-      to: sourcesRegistryContract,
-      value: toNano(0.01),
+      dest: sourcesRegistryContract,
+      value: toNano("0.01"),
       message: changeAdminOp(address),
     });
   }
 
   const adminBefore = await getAdminAddress();
-  console.log("Current admin is: ", adminBefore.toFriendly());
+  console.log("Current admin is: ", adminBefore.toString());
 
   await replaceAdminTXN(newAdmin);
 
   const adminAfter = await getAdminAddress();
-  console.log("After change, admin is: ", adminAfter.toFriendly());
+  console.log("After change, admin is: ", adminAfter.toString());
 
-  assert(adminAfter.toFriendly() === newAdmin.toFriendly(), "Admin should be changed to new admin");
+  assert(adminAfter.equals(newAdmin), "Admin should be changed to new admin");
 }
 
 async function setCodeTests(sourcesRegistryContract: Address, tc: TonClient, wallet: WalletStruct) {
   console.log("ℹ️ Testing setCode()");
-  const dumyCodeCell = Cell.fromBoc(dummySourceRegistryHex)[0];
-  const actualCodeCell = Cell.fromBoc(actualSourceRegistryHex)[0];
+  const dumyCodeCell = Cell.fromBoc(Buffer.from(dummySourceRegistryHex, "hex"))[0];
+  const actualCodeCell = Cell.fromBoc(Buffer.from(actualSourceRegistryHex, "hex"))[0];
 
   await makeTXN(wallet, tc, {
-    to: sourcesRegistryContract,
-    value: toNano(0.01),
+    dest: sourcesRegistryContract,
+    value: toNano("0.01"),
     message: changeCode(dumyCodeCell),
   });
 
@@ -184,15 +185,15 @@ async function setCodeTests(sourcesRegistryContract: Address, tc: TonClient, wal
     sourcesRegistryContract,
     "get_am_i_replaced",
     [],
-    (s) => s[0] as BN,
+    (s) => s[0] as bigint,
     tc
   );
-  assert(resp.toNumber() === 742, "Contract should be replaced");
+  assert(resp === BigInt(742), "Contract should be replaced");
 
   // Revert code
   await makeTXN(wallet, tc, {
-    to: sourcesRegistryContract,
-    value: toNano(0.01),
+    dest: sourcesRegistryContract,
+    value: toNano("0.01"),
     message: beginCell().storeUint(9988, 32).storeUint(0, 64).storeRef(actualCodeCell).endCell(),
   });
 }
@@ -204,52 +205,58 @@ async function setSourceItemCodeTests(
 ) {
   console.log("ℹ️ Testing setSourceItemCode()");
 
-  const dumyCodeCell = Cell.fromBoc(dummySourceItemHex)[0];
-  const actualCodeCell = Cell.fromBoc(actualSourceItemHex)[0];
+  const dumyCodeCell = Cell.fromBoc(Buffer.from(dummySourceItemHex, "hex"))[0];
+  const actualCodeCell = Cell.fromBoc(Buffer.from(actualSourceItemHex, "hex"))[0];
 
   const origSourceItem = await makeGetCall(
     sourcesRegistryContract,
     "get_source_item_address",
-    [new BN(toSha256Buffer("testverifier")), new BN(Buffer.from("dummyCodeCellHash", "base64"))],
-    (s) => (s[0] as Cell).beginParse().readAddress()!,
+    [
+      toBigIntBE(toSha256Buffer("testverifier")),
+      toBigIntBE(Buffer.from("dummyCodeCellHash", "base64")),
+    ],
+    (s) => (s[0] as Cell).beginParse().loadAddress()!,
     tc
   );
 
   await makeTXN(wallet, tc, {
-    to: sourcesRegistryContract,
-    value: toNano(0.01),
+    dest: sourcesRegistryContract,
+    value: toNano("0.01"),
     message: setSourceItemCode(dumyCodeCell),
   });
 
   const modifiedSourceItem = await makeGetCall(
     sourcesRegistryContract,
     "get_source_item_address",
-    [new BN(toSha256Buffer("testverifier")), new BN(Buffer.from("dummyCodeCellHash", "base64"))],
-    (s) => (s[0] as Cell).beginParse().readAddress()!,
+    [
+      toBigIntBE(toSha256Buffer("testverifier")),
+      toBigIntBE(Buffer.from("dummyCodeCellHash", "base64")),
+    ],
+    (s) => (s[0] as Cell).beginParse().loadAddress()!,
     tc
   );
 
-  assert(
-    origSourceItem.toFriendly() !== modifiedSourceItem.toFriendly(),
-    "Source item address should be changed"
-  );
+  assert(origSourceItem.equals(modifiedSourceItem), "Source item address should be changed");
 
   await makeTXN(wallet, tc, {
-    to: sourcesRegistryContract,
-    value: toNano(0.01),
+    dest: sourcesRegistryContract,
+    value: toNano("0.01"),
     message: setSourceItemCode(actualCodeCell),
   });
 
   const originalSourceItem2 = await makeGetCall(
     sourcesRegistryContract,
     "get_source_item_address",
-    [new BN(toSha256Buffer("testverifier")), new BN(Buffer.from("dummyCodeCellHash", "base64"))],
-    (s) => (s[0] as Cell).beginParse().readAddress()!,
+    [
+      toBigIntBE(toSha256Buffer("testverifier")),
+      toBigIntBE(Buffer.from("dummyCodeCellHash", "base64")),
+    ],
+    (s) => (s[0] as Cell).beginParse().loadAddress()!,
     tc
   );
 
   assert(
-    origSourceItem.toFriendly() === originalSourceItem2.toFriendly(),
+    origSourceItem.equals(originalSourceItem2),
     "Source item address should equal after revert"
   );
 }
