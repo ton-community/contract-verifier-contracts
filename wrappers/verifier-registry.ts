@@ -12,12 +12,11 @@ import {
   Slice,
 } from "ton-core";
 
-
 export type RegistryData = {
-  verifiers: Map<bigint, Verifier>;
+  verifiers: Map<bigint, VerifierConfig>;
 };
 
-export type Verifier = {
+export type VerifierConfig = {
   admin: Address;
   quorum: number;
   pub_key_endpoints: Map<bigint, number>;
@@ -38,7 +37,7 @@ export type CollectionMintItemInput = {
   content: string;
 };
 
-export function createSliceValue(): DictionaryValue<Slice> {
+function createSliceValue(): DictionaryValue<Slice> {
   return {
     serialize: (src, buidler) => {
       buidler.storeSlice(src);
@@ -48,65 +47,6 @@ export function createSliceValue(): DictionaryValue<Slice> {
     },
   };
 }
-
-export const Queries = {
-  removeVerifier: (params: { queryId?: number; id: bigint }) => {
-    let msgBody = beginCell();
-    msgBody.storeUint(OperationCodes.removeVerifier, 32);
-    msgBody.storeUint(params.queryId || 0, 64);
-    msgBody.storeUint(params.id, 256);
-    return msgBody.endCell();
-  },
-  updateVerifier: (params: {
-    queryId?: number;
-    id: bigint;
-    quorum: number;
-    endpoints: Map<bigint, number>;
-    name: string;
-    marketingUrl: string;
-  }) => {
-    let msgBody = beginCell();
-    msgBody.storeUint(OperationCodes.updateVerifier, 32);
-    msgBody.storeUint(params.queryId || 0, 64);
-    msgBody.storeUint(params.id, 256);
-    msgBody.storeUint(params.quorum, 8);
-
-    let e = Dictionary.empty(Dictionary.Keys.BigUint(256), createSliceValue());
-    params.endpoints.forEach(function (val: number, key: bigint) {
-      e.set(key, beginCell().storeUint(val, 32).endCell().beginParse());
-    });
-
-    msgBody.storeDict(e);
-    msgBody.storeRef(beginCell().storeBuffer(Buffer.from(params.name)).endCell());
-    msgBody.storeRef(beginCell().storeBuffer(Buffer.from(params.marketingUrl)).endCell());
-
-    return msgBody.endCell();
-  },
-  forwardMessage: (params: { queryId?: number; desc: Cell; signatures: Map<bigint, Buffer> }) => {
-    let msgBody = beginCell();
-    msgBody.storeUint(OperationCodes.forwardMessage, 32);
-    msgBody.storeUint(params.queryId || 0, 64);
-    msgBody.storeRef(params.desc);
-
-    let signatures = beginCell().endCell();
-    if (params.signatures.size > 0) {
-      let signaturesBuilder = beginCell();
-      params.signatures.forEach(function (val, key) {
-        signaturesBuilder.storeBuffer(val);
-        signaturesBuilder.storeUint(key, 256);
-
-        let s = beginCell();
-        s.storeRef(signaturesBuilder.endCell());
-        signaturesBuilder = s;
-      });
-      signatures = signaturesBuilder.asSlice().loadRef();
-    }
-
-    msgBody.storeRef(signatures);
-
-    return msgBody.endCell();
-  },
-};
 
 export function buildMsgDescription(
   id: bigint,
@@ -128,7 +68,7 @@ export function buildMsgDescription(
 export function buildRegistryDataCell(data: RegistryData, num?: number) {
   let dataCell = beginCell();
   let e = Dictionary.empty(Dictionary.Keys.BigUint(256), createSliceValue());
-  data.verifiers.forEach(function (val: Verifier, key: bigint) {
+  data.verifiers.forEach(function (val: VerifierConfig, key: bigint) {
     let x = beginCell().storeAddress(val.admin).storeUint(val.quorum, 8);
 
     let points = Dictionary.empty(Dictionary.Keys.BigUint(256), createSliceValue());
@@ -212,7 +152,7 @@ export class VerifierRegistry implements Contract {
     return num;
   }
 
-  async getVerifiers(provider: ContractProvider): Promise<Verifier[]> {
+  async getVerifiers(provider: ContractProvider): Promise<VerifierConfig[]> {
     let res = await provider.get("get_verifiers", []);
     const item = res.stack.readCell();
     const c = item.beginParse();
@@ -232,6 +172,90 @@ export class VerifierRegistry implements Contract {
         name: v.loadRef().beginParse().loadStringTail(),
         marketingUrl: v.loadRef().beginParse().loadStringTail(),
       };
+    });
+  }
+
+  async sendRemoveVerifier(
+    provider: ContractProvider,
+    via: Sender,
+    params: { queryId?: number; id: bigint; value: bigint }
+  ) {
+    let msgBody = beginCell();
+    msgBody.storeUint(OperationCodes.removeVerifier, 32);
+    msgBody.storeUint(params.queryId || 0, 64);
+    msgBody.storeUint(params.id, 256);
+    await provider.internal(via, {
+      value: params.value,
+      sendMode: SendMode.PAY_GAS_SEPARATELY,
+      body: msgBody.endCell(),
+    });
+  }
+
+  async sendUpdateVerifier(
+    provider: ContractProvider,
+    via: Sender,
+    params: {
+      queryId?: number;
+      id: bigint;
+      quorum: number;
+      endpoints: Map<bigint, number>;
+      name: string;
+      marketingUrl: string;
+      value: bigint;
+    }
+  ) {
+    let msgBody = beginCell();
+    msgBody.storeUint(OperationCodes.updateVerifier, 32);
+    msgBody.storeUint(params.queryId || 0, 64);
+    msgBody.storeUint(params.id, 256);
+    msgBody.storeUint(params.quorum, 8);
+
+    let e = Dictionary.empty(Dictionary.Keys.BigUint(256), createSliceValue());
+    params.endpoints.forEach(function (val: number, key: bigint) {
+      e.set(key, beginCell().storeUint(val, 32).endCell().beginParse());
+    });
+
+    msgBody.storeDict(e);
+    msgBody.storeRef(beginCell().storeBuffer(Buffer.from(params.name)).endCell());
+    msgBody.storeRef(beginCell().storeBuffer(Buffer.from(params.marketingUrl)).endCell());
+
+    await provider.internal(via, {
+      value: params.value,
+      sendMode: SendMode.PAY_GAS_SEPARATELY,
+      body: msgBody.endCell(),
+    });
+  }
+
+  async sendForwardMessage(
+    provider: ContractProvider,
+    via: Sender,
+    params: { queryId?: number; desc: Cell; signatures: Map<bigint, Buffer>; value: bigint }
+  ) {
+    let msgBody = beginCell();
+    msgBody.storeUint(OperationCodes.forwardMessage, 32);
+    msgBody.storeUint(params.queryId || 0, 64);
+    msgBody.storeRef(params.desc);
+
+    let signatures = beginCell().endCell();
+    if (params.signatures.size > 0) {
+      let signaturesBuilder = beginCell();
+      params.signatures.forEach(function (val, key) {
+        signaturesBuilder.storeBuffer(val);
+        signaturesBuilder.storeUint(key, 256);
+
+        let s = beginCell();
+        s.storeRef(signaturesBuilder.endCell());
+        signaturesBuilder = s;
+      });
+      signatures = signaturesBuilder.asSlice().loadRef();
+    }
+
+    msgBody.storeRef(signatures);
+
+    await provider.internal(via, {
+      value: params.value,
+      sendMode: SendMode.PAY_GAS_SEPARATELY,
+      body: msgBody.endCell(),
     });
   }
 }

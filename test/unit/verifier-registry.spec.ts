@@ -5,17 +5,16 @@ import { Blockchain, SandboxContract, TreasuryContract } from "@ton-community/sa
 import { sign, KeyPair } from "ton-crypto";
 import "@ton-community/test-utils";
 import { toBigIntBE } from "bigint-buffer";
+import { compile } from "@ton-community/blueprint";
 
 import { randomAddress, randomKeyPair } from "./helpers";
 import {
   RegistryData,
-  Verifier,
-  Queries,
+  VerifierConfig,
   buildMsgDescription,
   VerifierRegistry,
 } from "../../wrappers/verifier-registry";
 import { ip2num, sha256BN } from "./helpers";
-import { hex } from "../../build/verifier-registry.compiled.json";
 import { transactionsFrom } from "./helpers";
 
 export async function genDefaultVerifierRegistryConfig(
@@ -28,7 +27,7 @@ export async function genDefaultVerifierRegistryConfig(
   return {
     keys: [kp, kp2, kp3],
     data: {
-      verifiers: new Map<bigint, Verifier>([
+      verifiers: new Map<bigint, VerifierConfig>([
         [
           sha256BN("verifier1"),
           {
@@ -49,12 +48,16 @@ export async function genDefaultVerifierRegistryConfig(
 }
 
 describe("Verifier Registry", () => {
-  const code = Cell.fromBoc(Buffer.from(hex, "hex"))[0];
+  let code: Cell;
 
   let blockchain: Blockchain;
   let verifierRegistry: SandboxContract<VerifierRegistry>;
   let admin: SandboxContract<TreasuryContract>;
   let keys: KeyPair[];
+
+  before(async () => {
+    code = await compile("verifier-registry");
+  });
 
   beforeEach(async () => {
     blockchain = await Blockchain.create();
@@ -82,17 +85,14 @@ describe("Verifier Registry", () => {
   it("should update verifier", async () => {
     let kp3 = await randomKeyPair();
 
-    let res = await verifierRegistry.sendInternalMessage(
-      admin.getSender(),
-      Queries.updateVerifier({
-        id: sha256BN("verifier1"),
-        quorum: 7,
-        endpoints: new Map<bigint, number>([[toBigIntBE(kp3.publicKey), ip2num("10.0.0.1")]]),
-        name: "verifier1",
-        marketingUrl: "https://myverifier.com",
-      }),
-      toNano(1)
-    );
+    let res = await verifierRegistry.sendUpdateVerifier(admin.getSender(), {
+      id: sha256BN("verifier1"),
+      quorum: 7,
+      endpoints: new Map<bigint, number>([[toBigIntBE(kp3.publicKey), ip2num("10.0.0.1")]]),
+      name: "verifier1",
+      marketingUrl: "https://myverifier.com",
+      value: toNano(1),
+    });
 
     expect(res.transactions).to.have.transaction({
       from: admin.address,
@@ -128,21 +128,18 @@ describe("Verifier Registry", () => {
   it("should reject verifier updates with too large config", async () => {
     let kp3 = await randomKeyPair();
 
-    let res = await verifierRegistry.sendInternalMessage(
-      admin.getSender(),
-      Queries.updateVerifier({
-        id: sha256BN("verifier1"),
-        quorum: 7,
-        endpoints: new Map<bigint, number>(
-          Array(1000)
-            .fill("")
-            .map((_, i) => [toBigIntBE(kp3.publicKey) - BigInt(i), ip2num("10.0.0.0")])
-        ),
-        name: "verifier1",
-        marketingUrl: "https://myverifier.com",
-      }),
-      toNano(1)
-    );
+    let res = await verifierRegistry.sendUpdateVerifier(admin.getSender(), {
+      id: sha256BN("verifier1"),
+      quorum: 7,
+      endpoints: new Map<bigint, number>(
+        Array(1000)
+          .fill("")
+          .map((_, i) => [toBigIntBE(kp3.publicKey) - BigInt(i), ip2num("10.0.0.0")])
+      ),
+      name: "verifier1",
+      marketingUrl: "https://myverifier.com",
+      value: toNano(1),
+    });
 
     expect(res.transactions).to.have.transaction({
       from: admin.address,
@@ -154,17 +151,14 @@ describe("Verifier Registry", () => {
     let kp3 = await randomKeyPair();
     let fakeAdmin = randomAddress("fakeAdmin");
 
-    let res = await verifierRegistry.sendInternalMessage(
-      blockchain.sender(fakeAdmin),
-      Queries.updateVerifier({
-        id: sha256BN("verifier1"),
-        quorum: 7,
-        endpoints: new Map<bigint, number>([[toBigIntBE(kp3.publicKey), ip2num("10.0.0.1")]]),
-        name: "verifier1",
-        marketingUrl: "https://myverifier.com",
-      }),
-      toNano(1)
-    );
+    let res = await verifierRegistry.sendUpdateVerifier(blockchain.sender(fakeAdmin), {
+      id: sha256BN("verifier1"),
+      quorum: 7,
+      endpoints: new Map<bigint, number>([[toBigIntBE(kp3.publicKey), ip2num("10.0.0.1")]]),
+      name: "verifier1",
+      marketingUrl: "https://myverifier.com",
+      value: toNano(1),
+    });
 
     expect(res.transactions).to.have.transaction({
       from: fakeAdmin,
@@ -176,17 +170,14 @@ describe("Verifier Registry", () => {
     let kp3 = await randomKeyPair();
     let fakeAdmin = randomAddress("fakeAdmin");
 
-    let res = await verifierRegistry.sendInternalMessage(
-      blockchain.sender(fakeAdmin),
-      Queries.updateVerifier({
-        id: sha256BN("verifier_new"),
-        quorum: 7,
-        endpoints: new Map<bigint, number>([[toBigIntBE(kp3.publicKey), ip2num("10.0.0.1")]]),
-        name: "verifier_new",
-        marketingUrl: "https://myverifier.com",
-      }),
-      toNano(1)
-    );
+    let res = await verifierRegistry.sendUpdateVerifier(blockchain.sender(fakeAdmin), {
+      id: sha256BN("verifier_new"),
+      quorum: 7,
+      endpoints: new Map<bigint, number>([[toBigIntBE(kp3.publicKey), ip2num("10.0.0.1")]]),
+      name: "verifier_new",
+      marketingUrl: "https://myverifier.com",
+      value: toNano(1),
+    });
 
     expect(res.transactions).to.have.transaction({
       from: fakeAdmin,
@@ -195,13 +186,10 @@ describe("Verifier Registry", () => {
   });
 
   it("should remove verifier", async () => {
-    let res = await verifierRegistry.sendInternalMessage(
-      admin.getSender(),
-      Queries.removeVerifier({
-        id: sha256BN("verifier1"),
-      }),
-      toNano(1)
-    );
+    let res = await verifierRegistry.sendRemoveVerifier(admin.getSender(), {
+      id: sha256BN("verifier1"),
+      value: toNano(1),
+    });
 
     expect(res.transactions).to.have.transaction({
       from: admin.address,
@@ -233,13 +221,10 @@ describe("Verifier Registry", () => {
 
   it("should not remove verifier", async () => {
     let fakeAdmin = randomAddress("fakeadmin");
-    let res = await verifierRegistry.sendInternalMessage(
-      blockchain.sender(fakeAdmin),
-      Queries.removeVerifier({
-        id: sha256BN("verifier1"),
-      }),
-      toNano(1)
-    );
+    let res = await verifierRegistry.sendRemoveVerifier(blockchain.sender(fakeAdmin), {
+      id: sha256BN("verifier1"),
+      value: toNano(1),
+    });
 
     expect(res.transactions).to.have.transaction({
       from: fakeAdmin,
@@ -250,13 +235,10 @@ describe("Verifier Registry", () => {
   it("should not remove verifier, not found", async () => {
     let fakeAdmin = randomAddress("fakeadmin");
 
-    let res = await verifierRegistry.sendInternalMessage(
-      blockchain.sender(fakeAdmin),
-      Queries.removeVerifier({
-        id: BigInt(223),
-      }),
-      toNano(1)
-    );
+    let res = await verifierRegistry.sendRemoveVerifier(blockchain.sender(fakeAdmin), {
+      id: BigInt(223),
+      value: toNano(1),
+    });
 
     expect(res.transactions).to.have.transaction({
       from: fakeAdmin,
@@ -269,25 +251,16 @@ describe("Verifier Registry", () => {
     let dst = randomAddress("dst");
     let msgBody = beginCell().storeUint(777, 32).endCell();
 
-    let desc = buildMsgDescription(
-      sha256BN("verifier1"),
-      1500,
-      src,
-      dst,
-      msgBody
-    ).endCell();
+    let desc = buildMsgDescription(sha256BN("verifier1"), 1500, src, dst, msgBody).endCell();
 
-    let res = await verifierRegistry.sendInternalMessage(
-      blockchain.sender(src),
-      Queries.forwardMessage({
-        desc,
-        signatures: new Map<bigint, Buffer>([
-          [toBigIntBE(keys[0].publicKey), sign(desc.hash(), keys[0].secretKey)],
-          [toBigIntBE(keys[1].publicKey), sign(desc.hash(), keys[1].secretKey)],
-        ]),
-      }),
-      toNano(3)
-    );
+    let res = await verifierRegistry.sendForwardMessage(blockchain.sender(src), {
+      desc,
+      signatures: new Map<bigint, Buffer>([
+        [toBigIntBE(keys[0].publicKey), sign(desc.hash(), keys[0].secretKey)],
+        [toBigIntBE(keys[1].publicKey), sign(desc.hash(), keys[1].secretKey)],
+      ]),
+      value: toNano(3),
+    });
 
     expect(res.transactions).to.have.transaction({
       from: src,
@@ -309,26 +282,17 @@ describe("Verifier Registry", () => {
     let dst = randomAddress("dst");
     let msgBody = beginCell().storeUint(777, 32).endCell();
 
-    let desc = buildMsgDescription(
-      sha256BN("verifier1"),
-      1500,
-      src,
-      dst,
-      msgBody
-    ).endCell();
+    let desc = buildMsgDescription(sha256BN("verifier1"), 1500, src, dst, msgBody).endCell();
 
-    let res = await verifierRegistry.sendInternalMessage(
-      blockchain.sender(src),
-      Queries.forwardMessage({
-        desc,
-        signatures: new Map<bigint, Buffer>([
-          [toBigIntBE(keys[0].publicKey), sign(desc.hash(), keys[0].secretKey)],
-          [toBigIntBE(keys[1].publicKey), sign(desc.hash(), keys[1].secretKey)],
-          [toBigIntBE(keys[2].publicKey), sign(desc.hash(), keys[1].secretKey)],
-        ]),
-      }),
-      toNano(3)
-    );
+    let res = await verifierRegistry.sendForwardMessage(blockchain.sender(src), {
+      desc,
+      signatures: new Map<bigint, Buffer>([
+        [toBigIntBE(keys[0].publicKey), sign(desc.hash(), keys[0].secretKey)],
+        [toBigIntBE(keys[1].publicKey), sign(desc.hash(), keys[1].secretKey)],
+        [toBigIntBE(keys[2].publicKey), sign(desc.hash(), keys[1].secretKey)],
+      ]),
+      value: toNano(3),
+    });
 
     expect(res.transactions).to.have.transaction({
       from: src,
@@ -350,24 +314,15 @@ describe("Verifier Registry", () => {
     let dst = randomAddress("dst");
     let msgBody = beginCell().storeUint(777, 32).endCell();
 
-    let desc = buildMsgDescription(
-      sha256BN("verifier1"),
-      1500,
-      src,
-      dst,
-      msgBody
-    ).endCell();
+    let desc = buildMsgDescription(sha256BN("verifier1"), 1500, src, dst, msgBody).endCell();
 
-    let res = await verifierRegistry.sendInternalMessage(
-      blockchain.sender(src),
-      Queries.forwardMessage({
-        desc,
-        signatures: new Map<bigint, Buffer>([
-          [toBigIntBE(keys[0].publicKey), sign(desc.hash(), keys[0].secretKey)],
-        ]),
-      }),
-      toNano(3)
-    );
+    let res = await verifierRegistry.sendForwardMessage(blockchain.sender(src), {
+      desc,
+      signatures: new Map<bigint, Buffer>([
+        [toBigIntBE(keys[0].publicKey), sign(desc.hash(), keys[0].secretKey)],
+      ]),
+      value: toNano(3),
+    });
 
     expect(res.transactions).to.have.transaction({
       from: src,
@@ -380,25 +335,16 @@ describe("Verifier Registry", () => {
     let dst = randomAddress("dst");
     let msgBody = beginCell().storeUint(777, 32).endCell();
 
-    let desc = buildMsgDescription(
-      sha256BN("verifier1"),
-      1500,
-      src,
-      dst,
-      msgBody
-    ).endCell();
+    let desc = buildMsgDescription(sha256BN("verifier1"), 1500, src, dst, msgBody).endCell();
 
-    let res = await verifierRegistry.sendInternalMessage(
-      blockchain.sender(src),
-      Queries.forwardMessage({
-        desc,
-        signatures: new Map<bigint, Buffer>([
-          [toBigIntBE(keys[0].publicKey), sign(desc.hash(), keys[0].secretKey)],
-          [toBigIntBE(keys[0].publicKey), sign(desc.hash(), keys[0].secretKey)],
-        ]),
-      }),
-      toNano(3)
-    );
+    let res = await verifierRegistry.sendForwardMessage(blockchain.sender(src), {
+      desc,
+      signatures: new Map<bigint, Buffer>([
+        [toBigIntBE(keys[0].publicKey), sign(desc.hash(), keys[0].secretKey)],
+        [toBigIntBE(keys[0].publicKey), sign(desc.hash(), keys[0].secretKey)],
+      ]),
+      value: toNano(3),
+    });
 
     expect(res.transactions).to.have.transaction({
       from: src,
@@ -411,22 +357,13 @@ describe("Verifier Registry", () => {
     let dst = randomAddress("dst");
     let msgBody = beginCell().storeUint(777, 32).endCell();
 
-    let desc = buildMsgDescription(
-      sha256BN("verifier1"),
-      1500,
-      src,
-      dst,
-      msgBody
-    ).endCell();
+    let desc = buildMsgDescription(sha256BN("verifier1"), 1500, src, dst, msgBody).endCell();
 
-    let res = await verifierRegistry.sendInternalMessage(
-      blockchain.sender(src),
-      Queries.forwardMessage({
-        desc,
-        signatures: new Map<bigint, Buffer>([]),
-      }),
-      toNano(3)
-    );
+    let res = await verifierRegistry.sendForwardMessage(blockchain.sender(src), {
+      desc,
+      signatures: new Map<bigint, Buffer>([]),
+      value: toNano(3),
+    });
     expect(res.transactions).to.have.transaction({
       from: src,
       aborted: true,
@@ -438,25 +375,16 @@ describe("Verifier Registry", () => {
     let dst = randomAddress("dst");
     let msgBody = beginCell().storeUint(777, 32).endCell();
 
-    let desc = buildMsgDescription(
-      sha256BN("verifier1"),
-      1500,
-      src,
-      dst,
-      msgBody
-    ).endCell();
+    let desc = buildMsgDescription(sha256BN("verifier1"), 1500, src, dst, msgBody).endCell();
 
-    let res = await verifierRegistry.sendInternalMessage(
-      blockchain.sender(src),
-      Queries.forwardMessage({
-        desc,
-        signatures: new Map<bigint, Buffer>([
-          [toBigIntBE(keys[0].publicKey), sign(desc.hash(), keys[0].secretKey)],
-          [toBigIntBE(keys[1].publicKey), sign(desc.hash(), keys[0].secretKey)],
-        ]),
-      }),
-      toNano(3)
-    );
+    let res = await verifierRegistry.sendForwardMessage(blockchain.sender(src), {
+      desc,
+      signatures: new Map<bigint, Buffer>([
+        [toBigIntBE(keys[0].publicKey), sign(desc.hash(), keys[0].secretKey)],
+        [toBigIntBE(keys[1].publicKey), sign(desc.hash(), keys[0].secretKey)],
+      ]),
+      value: toNano(3),
+    });
 
     expect(res.transactions).to.have.transaction({
       from: src,
@@ -469,25 +397,16 @@ describe("Verifier Registry", () => {
     let dst = randomAddress("dst");
     let msgBody = beginCell().storeUint(777, 32).endCell();
 
-    let desc = buildMsgDescription(
-      sha256BN("verifier1"),
-      999,
-      src,
-      dst,
-      msgBody
-    ).endCell();
+    let desc = buildMsgDescription(sha256BN("verifier1"), 999, src, dst, msgBody).endCell();
 
-    let res = await verifierRegistry.sendInternalMessage(
-      blockchain.sender(src),
-      Queries.forwardMessage({
-        desc,
-        signatures: new Map<bigint, Buffer>([
-          [toBigIntBE(keys[0].publicKey), sign(desc.hash(), keys[0].secretKey)],
-          [toBigIntBE(keys[1].publicKey), sign(desc.hash(), keys[1].secretKey)],
-        ]),
-      }),
-      toNano(3)
-    );
+    let res = await verifierRegistry.sendForwardMessage(blockchain.sender(src), {
+      desc,
+      signatures: new Map<bigint, Buffer>([
+        [toBigIntBE(keys[0].publicKey), sign(desc.hash(), keys[0].secretKey)],
+        [toBigIntBE(keys[1].publicKey), sign(desc.hash(), keys[1].secretKey)],
+      ]),
+      value: toNano(3),
+    });
 
     expect(res.transactions).to.have.transaction({
       from: src,
@@ -508,17 +427,14 @@ describe("Verifier Registry", () => {
       msgBody
     ).endCell();
 
-    let res = await verifierRegistry.sendInternalMessage(
-      blockchain.sender(src),
-      Queries.forwardMessage({
-        desc,
-        signatures: new Map<bigint, Buffer>([
-          [toBigIntBE(keys[0].publicKey), sign(desc.hash(), keys[0].secretKey)],
-          [toBigIntBE(keys[1].publicKey), sign(desc.hash(), keys[1].secretKey)],
-        ]),
-      }),
-      toNano(3)
-    );
+    let res = await verifierRegistry.sendForwardMessage(blockchain.sender(src), {
+      desc,
+      signatures: new Map<bigint, Buffer>([
+        [toBigIntBE(keys[0].publicKey), sign(desc.hash(), keys[0].secretKey)],
+        [toBigIntBE(keys[1].publicKey), sign(desc.hash(), keys[1].secretKey)],
+      ]),
+      value: toNano(3),
+    });
 
     expect(res.transactions).to.have.transaction({
       from: src,
@@ -533,17 +449,14 @@ describe("Verifier Registry", () => {
 
     let desc = buildMsgDescription(BigInt(333), 1500, src, dst, msgBody).endCell();
 
-    let res = await verifierRegistry.sendInternalMessage(
-      blockchain.sender(src),
-      Queries.forwardMessage({
-        desc,
-        signatures: new Map<bigint, Buffer>([
-          [toBigIntBE(keys[0].publicKey), sign(desc.hash(), keys[0].secretKey)],
-          [toBigIntBE(keys[1].publicKey), sign(desc.hash(), keys[1].secretKey)],
-        ]),
-      }),
-      toNano(3)
-    );
+    let res = await verifierRegistry.sendForwardMessage(blockchain.sender(src), {
+      desc,
+      signatures: new Map<bigint, Buffer>([
+        [toBigIntBE(keys[0].publicKey), sign(desc.hash(), keys[0].secretKey)],
+        [toBigIntBE(keys[1].publicKey), sign(desc.hash(), keys[1].secretKey)],
+      ]),
+      value: toNano(3),
+    });
 
     expect(res.transactions).to.have.transaction({
       from: src,
@@ -556,17 +469,14 @@ describe("Verifier Registry", () => {
 
     let kp3 = await randomKeyPair();
 
-    let res = await verifierRegistry.sendInternalMessage(
-      blockchain.sender(user),
-      Queries.updateVerifier({
-        id: sha256BN("verifier2"),
-        quorum: 7,
-        endpoints: new Map<bigint, number>([[toBigIntBE(kp3.publicKey), ip2num("10.0.0.1")]]),
-        name: "verifier2",
-        marketingUrl: "https://myverifier.com",
-      }),
-      toNano(10005)
-    );
+    let res = await verifierRegistry.sendUpdateVerifier(blockchain.sender(user), {
+      id: sha256BN("verifier2"),
+      quorum: 7,
+      endpoints: new Map<bigint, number>([[toBigIntBE(kp3.publicKey), ip2num("10.0.0.1")]]),
+      name: "verifier2",
+      marketingUrl: "https://myverifier.com",
+      value: toNano(10005),
+    });
 
     expect(res.transactions).to.have.transaction({
       from: user,
@@ -612,17 +522,14 @@ describe("Verifier Registry", () => {
 
     let kp3 = await randomKeyPair();
 
-    let res = await verifierRegistry.sendInternalMessage(
-      blockchain.sender(user),
-      Queries.updateVerifier({
-        id: sha256BN("verifier2"),
-        quorum: 7,
-        endpoints: new Map<bigint, number>([[toBigIntBE(kp3.publicKey), ip2num("10.0.0.1")]]),
-        name: "verifier2",
-        marketingUrl: "https://myverifier.com",
-      }),
-      toNano(10005)
-    );
+    let res = await verifierRegistry.sendUpdateVerifier(blockchain.sender(user), {
+      id: sha256BN("verifier2"),
+      quorum: 7,
+      endpoints: new Map<bigint, number>([[toBigIntBE(kp3.publicKey), ip2num("10.0.0.1")]]),
+      name: "verifier2",
+      marketingUrl: "https://myverifier.com",
+      value: toNano(10005),
+    });
 
     expect(res.transactions).to.have.transaction({
       from: user,
@@ -636,17 +543,14 @@ describe("Verifier Registry", () => {
     let kp3 = await randomKeyPair();
 
     // add
-    let res = await verifierRegistry.sendInternalMessage(
-      blockchain.sender(user),
-      Queries.updateVerifier({
-        id: sha256BN("verifier2"),
-        quorum: 7,
-        endpoints: new Map<bigint, number>([[toBigIntBE(kp3.publicKey), ip2num("10.0.0.1")]]),
-        name: "verifier2",
-        marketingUrl: "https://myverifier.com",
-      }),
-      toNano(10005)
-    );
+    let res = await verifierRegistry.sendUpdateVerifier(blockchain.sender(user), {
+      id: sha256BN("verifier2"),
+      quorum: 7,
+      endpoints: new Map<bigint, number>([[toBigIntBE(kp3.publicKey), ip2num("10.0.0.1")]]),
+      name: "verifier2",
+      marketingUrl: "https://myverifier.com",
+      value: toNano(10005),
+    });
 
     expect(res.transactions).to.have.transaction({
       from: user,
@@ -667,17 +571,14 @@ describe("Verifier Registry", () => {
     expect(verifiersNum).to.equal(2);
 
     // update
-    res = await verifierRegistry.sendInternalMessage(
-      blockchain.sender(user),
-      Queries.updateVerifier({
-        id: sha256BN("verifier2"),
-        quorum: 1,
-        endpoints: new Map<bigint, number>([[toBigIntBE(kp3.publicKey), ip2num("10.0.0.2")]]),
-        name: "verifier2",
-        marketingUrl: "https://myverifier.com",
-      }),
-      toNano(5)
-    );
+    res = await verifierRegistry.sendUpdateVerifier(blockchain.sender(user), {
+      id: sha256BN("verifier2"),
+      quorum: 1,
+      endpoints: new Map<bigint, number>([[toBigIntBE(kp3.publicKey), ip2num("10.0.0.2")]]),
+      name: "verifier2",
+      marketingUrl: "https://myverifier.com",
+      value: toNano(5),
+    });
 
     data = await verifierRegistry.getVerifier(sha256BN("verifier2"));
     sets = (data.settings as Cell).beginParse();
@@ -696,24 +597,15 @@ describe("Verifier Registry", () => {
     let dst = randomAddress("dst");
     let msgBody = beginCell().storeUint(777, 32).endCell();
 
-    let desc = buildMsgDescription(
-      sha256BN("verifier2"),
-      1500,
-      src,
-      dst,
-      msgBody
-    ).endCell();
+    let desc = buildMsgDescription(sha256BN("verifier2"), 1500, src, dst, msgBody).endCell();
 
-    res = await verifierRegistry.sendInternalMessage(
-      blockchain.sender(src),
-      Queries.forwardMessage({
-        desc,
-        signatures: new Map<bigint, Buffer>([
-          [toBigIntBE(kp3.publicKey), sign(desc.hash(), kp3.secretKey)],
-        ]),
-      }),
-      toNano(3)
-    );
+    res = await verifierRegistry.sendForwardMessage(blockchain.sender(src), {
+      desc,
+      signatures: new Map<bigint, Buffer>([
+        [toBigIntBE(kp3.publicKey), sign(desc.hash(), kp3.secretKey)],
+      ]),
+      value: toNano(3),
+    });
 
     expect(res.transactions).to.have.transaction({
       from: src,
@@ -727,13 +619,10 @@ describe("Verifier Registry", () => {
     // expect(excess.mode).to.equal(64); TODO
 
     // remove
-    res = await verifierRegistry.sendInternalMessage(
-      blockchain.sender(user),
-      Queries.removeVerifier({
-        id: sha256BN("verifier2"),
-      }),
-      toNano(1)
-    );
+    res = await verifierRegistry.sendRemoveVerifier(blockchain.sender(user), {
+      id: sha256BN("verifier2"),
+      value: toNano(1),
+    });
     expect(res.transactions).to.have.transaction({
       from: user,
       exitCode: 0,
@@ -744,23 +633,17 @@ describe("Verifier Registry", () => {
 
     // should not forward
 
-    res = await verifierRegistry.sendInternalMessage(
-      blockchain.sender(src),
-      Queries.removeVerifier({
-        id: sha256BN("verifier2"),
-      }),
-      toNano(1)
-    );
-    res = await verifierRegistry.sendInternalMessage(
-      blockchain.sender(src),
-      Queries.forwardMessage({
-        desc,
-        signatures: new Map<bigint, Buffer>([
-          [toBigIntBE(kp3.publicKey), sign(desc.hash(), kp3.secretKey)],
-        ]),
-      }),
-      toNano(3)
-    );
+    res = await verifierRegistry.sendRemoveVerifier(blockchain.sender(src), {
+      id: sha256BN("verifier2"),
+      value: toNano(1),
+    });
+    res = await verifierRegistry.sendForwardMessage(blockchain.sender(src), {
+      desc,
+      signatures: new Map<bigint, Buffer>([
+        [toBigIntBE(kp3.publicKey), sign(desc.hash(), kp3.secretKey)],
+      ]),
+      value: toNano(3),
+    });
 
     expect(res.transactions).to.have.transaction({
       from: src,
@@ -786,17 +669,14 @@ describe("Verifier Registry", () => {
     ];
 
     for (const [name, url] of verifierConfig) {
-      await verifierRegistry.sendInternalMessage(
-        blockchain.sender(user),
-        Queries.updateVerifier({
-          id: sha256BN(name),
-          quorum: 7,
-          endpoints: new Map<bigint, number>([[toBigIntBE(kp3.publicKey), ip2num("10.0.0.1")]]),
-          name: name,
-          marketingUrl: url,
-        }),
-        toNano(10005)
-      );
+      await verifierRegistry.sendUpdateVerifier(blockchain.sender(user), {
+        id: sha256BN(name),
+        quorum: 7,
+        endpoints: new Map<bigint, number>([[toBigIntBE(kp3.publicKey), ip2num("10.0.0.1")]]),
+        name: name,
+        marketingUrl: url,
+        value: toNano(10005),
+      });
     }
 
     const verifiers = await verifierRegistry.getVerifiers();
@@ -813,4 +693,3 @@ describe("Verifier Registry", () => {
     }
   });
 });
-

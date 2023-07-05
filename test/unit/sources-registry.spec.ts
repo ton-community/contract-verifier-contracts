@@ -1,13 +1,12 @@
 import { expect } from "chai";
 
-import { Cell, contractAddress, beginCell, toNano, Address } from "ton";
+import { Cell, contractAddress, beginCell, toNano, Address } from "ton-core";
 import { Blockchain, SandboxContract, TreasuryContract } from "@ton-community/sandbox";
+import { compile } from "@ton-community/blueprint";
 
-import * as sourcesRegistry from "../../contracts/sources-registry";
 import { randomAddress } from "./helpers";
 import { SourcesRegistry } from "../../wrappers/sources-registry";
 import { SourceItem } from "../../wrappers/source-item";
-import { hex } from "../../build/sources-registry.compiled.json";
 import { transactionsFrom } from "./helpers";
 
 const specs = [
@@ -19,12 +18,18 @@ const specs = [
 ];
 
 describe("Sources", () => {
-  const code = Cell.fromBoc(Buffer.from(hex, "hex"))[0];
+  let code: Cell;
+  let sourceItemCode: Cell;
 
   let blockchain: Blockchain;
   let sourceRegistryContract: SandboxContract<SourcesRegistry>;
   let admin: SandboxContract<TreasuryContract>;
   let verifierRegistryAddress: Address;
+
+  before(async () => {
+    code = await compile("sources-registry");
+    sourceItemCode = await compile("source-item");
+  });
 
   beforeEach(async () => {
     blockchain = await Blockchain.create();
@@ -34,7 +39,7 @@ describe("Sources", () => {
     verifierRegistryAddress = randomAddress("verifierReg");
 
     sourceRegistryContract = blockchain.openContract(
-      SourcesRegistry.create(verifierRegistryAddress, admin.address, code)
+      SourcesRegistry.create(verifierRegistryAddress, admin.address, code, sourceItemCode)
     );
 
     const deployResult = await sourceRegistryContract.sendDeploy(admin.getSender(), toNano(100));
@@ -49,10 +54,16 @@ describe("Sources", () => {
 
   describe("Deploy source item", () => {
     it("should deploy a source contract item", async () => {
-      const send = await sourceRegistryContract.sendInternalMessage(
+      const send = await sourceRegistryContract.sendDeploySource(
         blockchain.sender(verifierRegistryAddress),
-        sourcesRegistry.deploySource(specs[0].verifier, specs[0].codeCellHash, specs[0].jsonURL, 1),
-        toNano("0.5")
+
+        {
+          verifierId: specs[0].verifier,
+          codeCellHash: specs[0].codeCellHash,
+          jsonURL: specs[0].jsonURL,
+          version: 1,
+          value: toNano("0.5"),
+        }
       );
 
       expect(send.transactions).to.have.transaction({
@@ -72,11 +83,13 @@ describe("Sources", () => {
 
     it("disallows a non-verifier reg to deploy a source item", async () => {
       const notVerifier = await blockchain.treasury("non-verifier");
-      const send = await sourceRegistryContract.sendInternalMessage(
-        notVerifier.getSender(),
-        sourcesRegistry.deploySource(specs[0].verifier, specs[0].codeCellHash, specs[0].jsonURL, 1),
-        toNano("0.5")
-      );
+      const send = await sourceRegistryContract.sendDeploySource(notVerifier.getSender(), {
+        verifierId: specs[0].verifier,
+        codeCellHash: specs[0].codeCellHash,
+        jsonURL: specs[0].jsonURL,
+        version: 1,
+        value: toNano("0.5"),
+      });
       expect(send.transactions).to.have.transaction({
         from: notVerifier.address,
         exitCode: 401,
@@ -86,28 +99,33 @@ describe("Sources", () => {
 
   describe("Source item addresses", () => {
     it("returns source item address", async () => {
-      const send = await sourceRegistryContract.sendInternalMessage(
+      const send = await sourceRegistryContract.sendDeploySource(
         blockchain.sender(verifierRegistryAddress),
-        sourcesRegistry.deploySource(specs[0].verifier, specs[0].codeCellHash, specs[0].jsonURL, 1),
-        toNano("0.5")
+        {
+          verifierId: specs[0].verifier,
+          codeCellHash: specs[0].codeCellHash,
+          jsonURL: specs[0].jsonURL,
+          version: 1,
+          value: toNano("0.5"),
+        }
       );
 
-      const childFromChain = await sourceRegistryContract.getChildAddressFromChain(
+      const childFromChain = await sourceRegistryContract.getSourceItemAddress(
         specs[0].verifier,
         specs[0].codeCellHash
       );
 
-      let outMessages = transactionsFrom(send.transactions, verifierRegistryAddress)[0].outMessages;;
+      let outMessages = transactionsFrom(send.transactions, verifierRegistryAddress)[0].outMessages;
       const msg = outMessages.values()[0];
       expect(msg.info.dest).to.equalAddress(childFromChain);
     });
 
     it("returns different source item addresses for different verifiers", async () => {
-      const childFromChain = await sourceRegistryContract.getChildAddressFromChain(
+      const childFromChain = await sourceRegistryContract.getSourceItemAddress(
         specs[0].verifier,
         specs[0].codeCellHash
       );
-      const childFromChain2 = await sourceRegistryContract.getChildAddressFromChain(
+      const childFromChain2 = await sourceRegistryContract.getSourceItemAddress(
         specs[0].verifier + 1,
         specs[0].codeCellHash
       );
@@ -116,11 +134,11 @@ describe("Sources", () => {
     });
 
     it("returns different source item addresses for different code cell hashes", async () => {
-      const childFromChain = await sourceRegistryContract.getChildAddressFromChain(
+      const childFromChain = await sourceRegistryContract.getSourceItemAddress(
         specs[0].verifier,
         specs[0].codeCellHash
       );
-      const childFromChain2 = await sourceRegistryContract.getChildAddressFromChain(
+      const childFromChain2 = await sourceRegistryContract.getSourceItemAddress(
         specs[0].verifier,
         "E/XXoxbG124QU+iKxZtd5loHKjiEUTcdxcW+y7oT9ZZ="
       );
@@ -132,20 +150,24 @@ describe("Sources", () => {
   describe("Set verifier registry", () => {
     it("changes the verifier registry", async () => {
       const newVerifierRegistryAddress = randomAddress("newVerifierRegistry");
-      await sourceRegistryContract.sendInternalMessage(
-        admin.getSender(),
-        sourcesRegistry.changeVerifierRegistry(newVerifierRegistryAddress),
-        toNano("0.5")
-      );
+      await sourceRegistryContract.sendChangeVerifierRegistry(admin.getSender(), {
+        value: toNano("0.5"),
+        newVerifierRegistry: newVerifierRegistryAddress,
+      });
 
       const verifierRegistryAddress = await sourceRegistryContract.getVerifierRegistryAddress();
 
       expect(verifierRegistryAddress).to.equalAddress(newVerifierRegistryAddress);
 
-      const send = await sourceRegistryContract.sendInternalMessage(
+      const send = await sourceRegistryContract.sendDeploySource(
         blockchain.sender(newVerifierRegistryAddress),
-        sourcesRegistry.deploySource(specs[0].verifier, specs[0].codeCellHash, specs[0].jsonURL, 1),
-        toNano("0.5")
+        {
+          verifierId: specs[0].verifier,
+          codeCellHash: specs[0].codeCellHash,
+          jsonURL: specs[0].jsonURL,
+          version: 1,
+          value: toNano("0.5"),
+        }
       );
       expect(send.transactions).to.have.transaction({
         from: newVerifierRegistryAddress,
@@ -155,10 +177,12 @@ describe("Sources", () => {
     });
 
     it("disallows a non admin to change the verifier registry", async () => {
-      const send = await sourceRegistryContract.sendInternalMessage(
+      const send = await sourceRegistryContract.sendChangeVerifierRegistry(
         blockchain.sender(randomAddress("notadmin")),
-        sourcesRegistry.changeVerifierRegistry(randomAddress("newadmin")),
-        toNano("0.5")
+        {
+          value: toNano("0.5"),
+          newVerifierRegistry: randomAddress("newadmin"),
+        }
       );
 
       expect(send.transactions).to.have.transaction({
@@ -171,11 +195,10 @@ describe("Sources", () => {
 
   describe("Set admin", () => {
     it("allows the admin to change admin", async () => {
-      const send = await sourceRegistryContract.sendInternalMessage(
-        admin.getSender(),
-        sourcesRegistry.changeAdmin(randomAddress("newadmin")),
-        toNano("0.5")
-      );
+      const send = await sourceRegistryContract.sendChangeAdmin(admin.getSender(), {
+        value: toNano("0.5"),
+        newAdmin: randomAddress("newadmin"),
+      });
 
       const adminAddress = await sourceRegistryContract.getAdminAddress();
 
@@ -183,10 +206,12 @@ describe("Sources", () => {
     });
 
     it("disallows a non admin to change the admin", async () => {
-      const send = await sourceRegistryContract.sendInternalMessage(
+      const send = await sourceRegistryContract.sendChangeAdmin(
         blockchain.sender(randomAddress("notadmin")),
-        sourcesRegistry.changeAdmin(randomAddress("newadmin")),
-        toNano("0.5")
+        {
+          value: toNano("0.5"),
+          newAdmin: randomAddress("newadmin"),
+        }
       );
 
       expect(send.transactions).to.have.transaction({
@@ -199,30 +224,28 @@ describe("Sources", () => {
 
   describe("Set code", () => {
     it("allows the admin to set code", async () => {
-      const newCodeCell = beginCell().storeBit(1).endCell();
+      const newCode = beginCell().storeBit(1).endCell();
 
-      const send = await sourceRegistryContract.sendInternalMessage(
-        admin.getSender(),
-        sourcesRegistry.changeCode(newCodeCell),
-        toNano("0.5")
-      );
+      const send = await sourceRegistryContract.sendChangeCode(admin.getSender(), {
+        value: toNano("0.5"),
+        newCode,
+      });
       expect(send.transactions).to.have.transaction({
         from: admin.address,
         exitCode: 0,
       });
       // expect(send.exit_code).to.equal(0);
       const code = await sourceRegistryContract.getCodeOpt();
-      expect(Cell.fromBoc(code!).toString()).to.equal(newCodeCell.toString());
+      expect(Cell.fromBoc(code!).toString()).to.equal(newCode.toString());
     });
 
     it("disallows setting an empty set code", async () => {
-      const newCodeCell = beginCell().endCell();
+      const newCode = beginCell().endCell();
 
-      const send = await sourceRegistryContract.sendInternalMessage(
-        admin.getSender(),
-        sourcesRegistry.changeCode(newCodeCell),
-        toNano("0.5")
-      );
+      const send = await sourceRegistryContract.sendChangeCode(admin.getSender(), {
+        value: toNano("0.5"),
+        newCode,
+      });
 
       expect(send.transactions).to.have.transaction({
         from: admin.address,
@@ -231,11 +254,13 @@ describe("Sources", () => {
     });
 
     it("disallows a non admin to set code", async () => {
-      const newCodeCell = beginCell().endCell();
-      const send = await sourceRegistryContract.sendInternalMessage(
+      const newCode = beginCell().endCell();
+      const send = await sourceRegistryContract.sendChangeCode(
         blockchain.sender(randomAddress("notadmin")),
-        sourcesRegistry.changeCode(newCodeCell),
-        toNano("0.5")
+        {
+          value: toNano("0.5"),
+          newCode,
+        }
       );
 
       expect(send.transactions).to.have.transaction({
@@ -248,25 +273,24 @@ describe("Sources", () => {
 
   describe("Set source item code", () => {
     it("allows the admin to set source item code", async () => {
-      const newCodeCell = beginCell().storeBit(1).endCell();
+      const newCode = beginCell().storeBit(1).endCell();
 
-      const childFromChainBefore = await sourceRegistryContract.getChildAddressFromChain(
+      const childFromChainBefore = await sourceRegistryContract.getSourceItemAddress(
         specs[0].verifier,
         specs[0].codeCellHash
       );
 
-      const send = await sourceRegistryContract.sendInternalMessage(
-        admin.getSender(),
-        sourcesRegistry.setSourceItemCode(newCodeCell),
-        toNano("0.5")
-      );
+      const send = await sourceRegistryContract.sendSetSourceItemCode(admin.getSender(), {
+        value: toNano("0.5"),
+        newCode,
+      });
 
       expect(send.transactions).to.have.transaction({
         from: admin.address,
         exitCode: 0,
       });
 
-      const childFromChainAfter = await sourceRegistryContract.getChildAddressFromChain(
+      const childFromChainAfter = await sourceRegistryContract.getSourceItemAddress(
         specs[0].verifier,
         specs[0].codeCellHash
       );
@@ -275,13 +299,12 @@ describe("Sources", () => {
     });
 
     it("disallows setting an empty set source item code", async () => {
-      const newCodeCell = beginCell().endCell();
+      const newCode = beginCell().endCell();
 
-      const send = await sourceRegistryContract.sendInternalMessage(
-        admin.getSender(),
-        sourcesRegistry.setSourceItemCode(newCodeCell),
-        toNano("0.5")
-      );
+      const send = await sourceRegistryContract.sendSetSourceItemCode(admin.getSender(), {
+        value: toNano("0.5"),
+        newCode,
+      });
 
       expect(send.transactions).to.have.transaction({
         from: admin.address,
@@ -290,10 +313,12 @@ describe("Sources", () => {
     });
 
     it("disallows a non admin to set source item code", async () => {
-      const send = await sourceRegistryContract.sendInternalMessage(
+      const send = await sourceRegistryContract.sendSetSourceItemCode(
         blockchain.sender(randomAddress("notadmin")),
-        sourcesRegistry.setSourceItemCode(new Cell()),
-        toNano("0.5")
+        {
+          value: toNano("0.5"),
+          newCode: new Cell(),
+        }
       );
 
       expect(send.transactions).to.have.transaction({
@@ -305,10 +330,15 @@ describe("Sources", () => {
 
   describe("Deployment costs", () => {
     it("rejects deploy messages with less than min TON", async () => {
-      const send = await sourceRegistryContract.sendInternalMessage(
+      const send = await sourceRegistryContract.sendDeploySource(
         blockchain.sender(verifierRegistryAddress),
-        sourcesRegistry.deploySource(specs[0].verifier, specs[0].codeCellHash, specs[0].jsonURL, 1),
-        toNano("0.049")
+        {
+          verifierId: specs[0].verifier,
+          codeCellHash: specs[0].codeCellHash,
+          jsonURL: specs[0].jsonURL,
+          version: 1,
+          value: toNano("0.049"),
+        }
       );
 
       expect(send.transactions).to.have.transaction({
@@ -318,20 +348,25 @@ describe("Sources", () => {
     });
 
     it("Allows changing min and max ton deployment costs", async () => {
-      await sourceRegistryContract.sendInternalMessage(
-        admin.getSender(),
-        sourcesRegistry.setDeploymentCosts(toNano(10), toNano(20)),
-        toNano("0.01")
-      );
+      await sourceRegistryContract.sendSetDeploymentCosts(admin.getSender(), {
+        value: toNano("0.01"),
+        min: toNano(10),
+        max: toNano(20),
+      });
 
       const { min, max } = await sourceRegistryContract.getDeploymentCosts();
       expect(min).to.equal("10");
       expect(max).to.equal("20");
 
-      const send = await sourceRegistryContract.sendInternalMessage(
+      const send = await sourceRegistryContract.sendDeploySource(
         blockchain.sender(verifierRegistryAddress),
-        sourcesRegistry.deploySource(specs[0].verifier, specs[0].codeCellHash, specs[0].jsonURL, 1),
-        toNano(9)
+        {
+          verifierId: specs[0].verifier,
+          codeCellHash: specs[0].codeCellHash,
+          jsonURL: specs[0].jsonURL,
+          version: 1,
+          value: toNano(9),
+        }
       );
 
       expect(send.transactions).to.have.transaction({
@@ -339,10 +374,15 @@ describe("Sources", () => {
         exitCode: 900,
       });
 
-      const send2 = await sourceRegistryContract.sendInternalMessage(
+      const send2 = await sourceRegistryContract.sendDeploySource(
         blockchain.sender(verifierRegistryAddress),
-        sourcesRegistry.deploySource(specs[0].verifier, specs[0].codeCellHash, specs[0].jsonURL, 1),
-        toNano(19)
+        {
+          verifierId: specs[0].verifier,
+          codeCellHash: specs[0].codeCellHash,
+          jsonURL: specs[0].jsonURL,
+          version: 1,
+          value: toNano(19),
+        }
       );
 
       expect(send2.transactions).to.have.transaction({
@@ -350,10 +390,15 @@ describe("Sources", () => {
         exitCode: 0,
       });
 
-      const send3 = await sourceRegistryContract.sendInternalMessage(
+      const send3 = await sourceRegistryContract.sendDeploySource(
         blockchain.sender(verifierRegistryAddress),
-        sourcesRegistry.deploySource(specs[0].verifier, specs[0].codeCellHash, specs[0].jsonURL, 1),
-        toNano("20.1")
+        {
+          verifierId: specs[0].verifier,
+          codeCellHash: specs[0].codeCellHash,
+          jsonURL: specs[0].jsonURL,
+          version: 1,
+          value: toNano("20.1"),
+        }
       );
 
       expect(send3.transactions).to.have.transaction({
@@ -363,11 +408,11 @@ describe("Sources", () => {
     });
 
     it("Rejects changing min below lower bound", async () => {
-      const send = await sourceRegistryContract.sendInternalMessage(
-        admin.getSender(),
-        sourcesRegistry.setDeploymentCosts(toNano("0.05"), toNano(20)),
-        toNano("0.01")
-      );
+      const send = await sourceRegistryContract.sendSetDeploymentCosts(admin.getSender(), {
+        value: toNano("0.01"),
+        min: toNano("0.05"),
+        max: toNano(20),
+      });
       expect(send.transactions).to.have.transaction({
         from: admin.address,
         exitCode: 903,
@@ -375,10 +420,13 @@ describe("Sources", () => {
     });
 
     it("Rejects changing min/max from nonadmin", async () => {
-      const send = await sourceRegistryContract.sendInternalMessage(
+      const send = await sourceRegistryContract.sendSetDeploymentCosts(
         blockchain.sender(randomAddress("notadmin")),
-        sourcesRegistry.setDeploymentCosts(toNano(10), toNano(20)),
-        toNano("0.01")
+        {
+          value: toNano("0.01"),
+          min: toNano(10),
+          max: toNano(20),
+        }
       );
 
       expect(send.transactions).to.have.transaction({
@@ -388,10 +436,15 @@ describe("Sources", () => {
     });
 
     it("rejects deploy messages with more than max TON", async () => {
-      const send = await sourceRegistryContract.sendInternalMessage(
+      const send = await sourceRegistryContract.sendDeploySource(
         blockchain.sender(verifierRegistryAddress),
-        sourcesRegistry.deploySource(specs[0].verifier, specs[0].codeCellHash, specs[0].jsonURL, 1),
-        toNano("1.01")
+        {
+          verifierId: specs[0].verifier,
+          codeCellHash: specs[0].codeCellHash,
+          jsonURL: specs[0].jsonURL,
+          version: 1,
+          value: toNano("1.01"),
+        }
       );
       expect(send.transactions).to.have.transaction({
         from: verifierRegistryAddress,

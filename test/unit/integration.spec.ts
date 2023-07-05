@@ -1,33 +1,37 @@
 import { expect } from "chai";
 
-import { toNano, Cell, contractAddress, Address } from "ton";
+import { toNano, Cell, contractAddress, Address, beginCell } from "ton-core";
 import { KeyPair, sign } from "ton-crypto";
 import { Blockchain, SandboxContract, TreasuryContract } from "@ton-community/sandbox";
 import { toBigIntBE } from "bigint-buffer";
+import { compile } from "@ton-community/blueprint";
 
-import * as sourcesRegistry from "../../contracts/sources-registry";
 import { randomAddress } from "./helpers";
-import { SourcesRegistry } from "../../wrappers/sources-registry";
-import { VerifierRegistry, buildMsgDescription, Queries } from "../../wrappers/verifier-registry";
+import { SourcesRegistry, toSha256Buffer } from "../../wrappers/sources-registry";
+import { VerifierRegistry, buildMsgDescription } from "../../wrappers/verifier-registry";
 import { SourceItem } from "../../wrappers/source-item";
 import { genDefaultVerifierRegistryConfig } from "./verifier-registry.spec";
 import { sha256BN } from "./helpers";
-import { hex as SourcesRegistryHex } from "../../build/sources-registry.compiled.json";
-import { hex as VeriferRegistryHex } from "../../build/verifier-registry.compiled.json";
 import { transactionsFrom } from "./helpers";
-
 
 const VERIFIER_ID = "verifier1";
 
 describe("Integration", () => {
   let keys: KeyPair[];
-  let verifierRegistryCode = Cell.fromBoc(Buffer.from(VeriferRegistryHex, "hex"))[0];
-  let SourceRegistryCode = Cell.fromBoc(Buffer.from(SourcesRegistryHex, "hex"))[0];
+  let verifierRegistryCode: Cell;
+  let SourceRegistryCode: Cell;
+  let sourceItemCode: Cell;
 
   let blockchain: Blockchain;
   let sourceRegistryContract: SandboxContract<SourcesRegistry>;
   let verifierRegistryContract: SandboxContract<VerifierRegistry>;
   let admin: SandboxContract<TreasuryContract>;
+
+  before(async () => {
+    verifierRegistryCode = await compile("verifier-registry");
+    SourceRegistryCode = await compile("sources-registry");
+    sourceItemCode = await compile("source-item");
+  });
 
   beforeEach(async () => {
     blockchain = await Blockchain.create();
@@ -51,7 +55,12 @@ describe("Integration", () => {
     });
 
     sourceRegistryContract = blockchain.openContract(
-      SourcesRegistry.create(verifierRegistryContract.address, admin.address, SourceRegistryCode)
+      SourcesRegistry.create(
+        verifierRegistryContract.address,
+        admin.address,
+        SourceRegistryCode,
+        sourceItemCode
+      )
     );
 
     const deployResult2 = await sourceRegistryContract.sendDeploy(admin.getSender(), toNano(100));
@@ -68,7 +77,8 @@ describe("Integration", () => {
     const sender = randomAddress("someSender");
     const result = await deployFakeSource(verifierRegistryContract, sender, keys[0]);
 
-    const outMessages = transactionsFrom(result.transactions, verifierRegistryContract.address)[0].outMessages;
+    const outMessages = transactionsFrom(result.transactions, verifierRegistryContract.address)[0]
+      .outMessages;
     const msg = outMessages.values()[0];
     const sourceItemContract = blockchain.openContract(
       SourceItem.createFromAddress(contractAddress(0, msg.init!))
@@ -87,7 +97,8 @@ describe("Integration", () => {
       4
     );
 
-    const outMessages2 = transactionsFrom(result2.transactions, verifierRegistryContract.address)[0].outMessages;
+    const outMessages2 = transactionsFrom(result2.transactions, verifierRegistryContract.address)[0]
+      .outMessages;
     const msg2 = outMessages2.values()[0];
 
     const sourceItemContract2 = blockchain.openContract(
@@ -105,22 +116,24 @@ describe("Integration", () => {
       VerifierRegistry.createFromConfig(verifierRegistryCode, alternativeVerifierConfig.data, 1)
     );
 
-    const changeVerifierRegistryMessage = sourcesRegistry.changeVerifierRegistry(
-      alternativeVerifierRegistryContract.address!
-    );
-
-    await sourceRegistryContract.sendInternalMessage(
-      admin.getSender(),
-      changeVerifierRegistryMessage,
-      toNano("0.5")
-    );
+    await sourceRegistryContract.sendChangeVerifierRegistry(admin.getSender(), {
+      newVerifierRegistry: alternativeVerifierRegistryContract.address!,
+      value: toNano("0.5"),
+    });
 
     blockchain.openContract(alternativeVerifierRegistryContract);
     await alternativeVerifierRegistryContract.sendDeploy(admin.getSender(), toNano(100));
     const sender = randomAddress("someSender");
-    const result = await deployFakeSource(alternativeVerifierRegistryContract, sender, alternativeKp);
+    const result = await deployFakeSource(
+      alternativeVerifierRegistryContract,
+      sender,
+      alternativeKp
+    );
 
-    const outMessages = transactionsFrom(result.transactions, alternativeVerifierRegistryContract.address)[0].outMessages;
+    const outMessages = transactionsFrom(
+      result.transactions,
+      alternativeVerifierRegistryContract.address
+    )[0].outMessages;
     const msg = outMessages.values()[0];
 
     const sourceItemContract = blockchain.openContract(
@@ -139,7 +152,21 @@ describe("Integration", () => {
     url = "http://myurl.com",
     version: number = 1
   ) {
-    const msg = sourcesRegistry.deploySource(VERIFIER_ID, "XXX123", url, version);
+    function deploySource(
+      verifierId: string,
+      codeCellHash: string,
+      jsonURL: string,
+      version: number
+    ): Cell {
+      return beginCell()
+        .storeUint(1002, 32)
+        .storeUint(0, 64)
+        .storeBuffer(toSha256Buffer(verifierId))
+        .storeUint(toBigIntBE(Buffer.from(codeCellHash, "base64")), 256)
+        .storeRef(beginCell().storeUint(version, 8).storeBuffer(Buffer.from(jsonURL)).endCell()) // TODO support snakes
+        .endCell();
+    }
+    const msg = deploySource(VERIFIER_ID, "XXX123", url, version);
 
     let desc = buildMsgDescription(
       sha256BN(VERIFIER_ID),
@@ -149,16 +176,13 @@ describe("Integration", () => {
       msg
     ).endCell();
 
-    const result = verifierRegistryContract.sendInternalMessage(
-      blockchain.sender(sender),
-      Queries.forwardMessage({
-        desc: desc,
-        signatures: new Map<bigint, Buffer>([
-          [toBigIntBE(kp.publicKey), sign(desc.hash(), kp.secretKey)],
-        ]),
-      }),
-      toNano("0.5")
-    );
+    const result = verifierRegistryContract.sendForwardMessage(blockchain.sender(sender), {
+      desc: desc,
+      signatures: new Map<bigint, Buffer>([
+        [toBigIntBE(kp.publicKey), sign(desc.hash(), kp.secretKey)],
+      ]),
+      value: toNano("0.5"),
+    });
     return result;
   }
 
@@ -173,9 +197,16 @@ describe("Integration", () => {
 
   it("Deploys a source item contract", async () => {
     const sender = randomAddress("someSender");
-    const result = await deployFakeSource(verifierRegistryContract, sender, keys[0], "http://myurl.com", 2);
+    const result = await deployFakeSource(
+      verifierRegistryContract,
+      sender,
+      keys[0],
+      "http://myurl.com",
+      2
+    );
 
-    const outMessages = transactionsFrom(result.transactions, verifierRegistryContract.address)[0].outMessages;
+    const outMessages = transactionsFrom(result.transactions, verifierRegistryContract.address)[0]
+      .outMessages;
     const msg = outMessages.values()[0];
 
     const sourceItemContract = blockchain.openContract(

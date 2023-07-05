@@ -6,7 +6,12 @@ import { toBigIntBE } from "bigint-buffer";
 import { BlockchainTransaction } from "@ton-community/sandbox";
 
 export function transactionsFrom(transactions: BlockchainTransaction[], address: Address) {
-    return transactions.filter((item) => item.inMessage && item.inMessage.info.src instanceof Address && address.equals(item.inMessage.info.src))
+  return transactions.filter(
+    (item) =>
+      item.inMessage &&
+      item.inMessage.info.src instanceof Address &&
+      address.equals(item.inMessage.info.src)
+  );
 }
 
 export const zeroAddress = new Address(0, Buffer.alloc(32, 0));
