@@ -39,7 +39,14 @@ describe("Sources", () => {
     verifierRegistryAddress = randomAddress("verifierReg");
 
     sourceRegistryContract = blockchain.openContract(
-      SourcesRegistry.create(verifierRegistryAddress, admin.address, code, sourceItemCode)
+      SourcesRegistry.create(
+        {
+          admin: admin.address, 
+          verifierRegistryAddress,
+          sourceItemCode
+        }, 
+        code
+      )
     );
 
     const deployResult = await sourceRegistryContract.sendDeploy(admin.getSender(), toNano(100));

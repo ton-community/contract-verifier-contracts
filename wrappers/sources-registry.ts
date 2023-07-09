@@ -44,18 +44,22 @@ export class SourcesRegistry implements Contract {
   }
 
   static create(
-    verifierRegistryAddress: Address,
-    admin: Address,
+    params: {
+      verifierRegistryAddress: Address,
+      admin: Address,
+      sourceItemCode: Cell,
+      minTons?: bigint,
+      maxTons?: bigint,
+    },
     code: Cell,
-    sourceItemCode: Cell,
     workchain = 0
   ) {
     const data = sourceRegistryConfigToCell({
-      minTons: toNano("0.065"),
-      maxTons: toNano(1),
-      admin: admin,
-      verifierRegistryAddress: verifierRegistryAddress,
-      sourceItemCode,
+      minTons: params.minTons ?? toNano("0.065"),
+      maxTons: params.maxTons ?? toNano("1"),
+      admin: params.admin,
+      verifierRegistryAddress: params.verifierRegistryAddress,
+      sourceItemCode: params.sourceItemCode,
     });
     const init = { code, data };
     return new SourcesRegistry(contractAddress(workchain, init), init);

@@ -56,10 +56,12 @@ describe("Integration", () => {
 
     sourceRegistryContract = blockchain.openContract(
       SourcesRegistry.create(
-        verifierRegistryContract.address,
-        admin.address,
+        {
+          verifierRegistryAddress: verifierRegistryContract.address,
+          admin: admin.address,
+          sourceItemCode,
+        },
         SourceRegistryCode,
-        sourceItemCode
       )
     );
 
