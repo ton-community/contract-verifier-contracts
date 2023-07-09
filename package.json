@@ -6,11 +6,7 @@
   "author": "",
   "scripts": {
     "prettier": "npx prettier --write '{test,contracts,build,wrappers}/**/*.{ts,js,json}'",
-    "test": "node --no-experimental-fetch node_modules/mocha/bin/mocha --exit test/**/*.spec.ts",
-    "build": "ts-node ./build/_build.ts",
-    "deploy": "ts-node ./build/_deploy.ts",
-    "deploy:testnet": "ts-node ./build/_deploy.ts",
-    "postinstall": "ts-node ./build/_setup.ts"
+    "test": "node --no-experimental-fetch node_modules/mocha/bin/mocha --exit test/**/*.spec.ts"
   },
   "devDependencies": {
     "@ton-community/blueprint": "^0.10.0",
