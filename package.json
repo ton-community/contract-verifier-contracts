@@ -6,6 +6,7 @@
   "author": "",
   "scripts": {
     "prettier": "npx prettier --write '{test,contracts,build,wrappers}/**/*.{ts,js,json}'",
+    "build": "npx blueprint build source-item && npx blueprint build sources-registry && npx blueprint build verifier-registry && npx blueprint build sources-registry-only-set-code",
     "test": "node --no-experimental-fetch node_modules/mocha/bin/mocha --exit test/**/*.spec.ts"
   },
   "devDependencies": {
