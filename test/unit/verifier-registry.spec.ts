@@ -214,9 +214,17 @@ describe("Verifier Registry", () => {
     expect(body.loadBuffer(body.remainingBits / 8).toString()).to.equal(
       "Withdrawal and exit from the verifier registry"
     );
+    
+    // fails due to https://github.com/ton-core/ton-core/pull/28
+    // let data = await verifierRegistry.getVerifier(sha256BN("verifier1"));
+    // expect(data.settings).to.equal(null);
 
-    let data = await verifierRegistry.getVerifier(sha256BN("verifier1"));
-    expect(data.settings).to.equal(null);
+
+    let verifiers = await verifierRegistry.getVerifiers();
+    expect(verifiers.length).to.equal(0);
+
+    let verifiersNum = await verifierRegistry.getVerifiersNum();
+    expect(verifiersNum).to.equal(0);
   });
 
   it("should not remove verifier", async () => {
