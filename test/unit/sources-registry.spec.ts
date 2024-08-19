@@ -17,7 +17,7 @@ const specs = [
   },
 ];
 
-describe.only("Sources", () => {
+describe("Sources", () => {
   let code: Cell;
   let sourceItemCode: Cell;
 
