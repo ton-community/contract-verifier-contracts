@@ -472,7 +472,7 @@ describe("Sources", () => {
 
       expect(send.transactions).to.have.transaction({
         from: notVerifier.address,
-        exitCode: 0,
+        exitCode: 0xffff,
       });
     });
   });

@@ -246,7 +246,7 @@ export class SourcesRegistry implements Contract {
     await provider.internal(via, {
       value: toNano("0.5"),
       sendMode: SendMode.PAY_GAS_SEPARATELY,
-      body: beginCell().endCell(),
+      body: beginCell().storeUint(8888, 32).storeUint(0, 64).endCell(),
     });
   }
 }
