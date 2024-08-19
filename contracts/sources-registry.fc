@@ -24,6 +24,7 @@ const int error::invalid_cell_code = 902;
 const int error::too_much_value = 901;
 const int error::not_enough_value = 900;
 const int error::access_denied = 401;
+const int error::verifier_id_mismatch = 402;
 const int error::unknown_op = 0xffff;
 
 const int min_tons_lower_bound = 65000000; ;; 0.065 TON
@@ -103,7 +104,7 @@ slice calculate_source_item_address(int wc, cell state_init) {
       throw_if(error::not_enough_value, msg_value < min_tons_lower_bound);
       throw_if(error::not_enough_value, msg_value < min_tons);
       int verifier_id = forwarded_message~load_uint(256);
-      throw_unless(error::access_denied, verifier_id == verified_verifier_id);
+      throw_unless(error::verifier_id_mismatch, verifier_id == verified_verifier_id);
       int verified_code_cell_hash = forwarded_message~load_uint(256);
       cell source_content = forwarded_message~load_ref();
       forwarded_message.end_parse();

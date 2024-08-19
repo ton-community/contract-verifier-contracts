@@ -103,7 +103,7 @@ describe("Sources", () => {
 
       expect(send.transactions).to.have.transaction({
         from: verifierRegistryAddress,
-        exitCode: 401,
+        exitCode: 402,
       });
     });
   });
