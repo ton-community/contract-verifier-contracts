@@ -214,11 +214,10 @@ describe("Verifier Registry", () => {
     expect(body.loadBuffer(body.remainingBits / 8).toString()).to.equal(
       "Withdrawal and exit from the verifier registry"
     );
-    
+
     // fails due to https://github.com/ton-core/ton-core/pull/28
     // let data = await verifierRegistry.getVerifier(sha256BN("verifier1"));
     // expect(data.settings).to.equal(null);
-
 
     let verifiers = await verifierRegistry.getVerifiers();
     expect(verifiers.length).to.equal(0);
@@ -518,6 +517,70 @@ describe("Verifier Registry", () => {
       "You were successfully registered as a verifier"
     );
   });
+
+  it("shouldn't allow setting a 0 quorum", async () => {
+    let user = randomAddress("user");
+
+    let kp3 = await randomKeyPair();
+
+    let res = await verifierRegistry.sendUpdateVerifier(blockchain.sender(user), {
+      id: sha256BN("verifier2"),
+      quorum: 0,
+      endpoints: new Map<bigint, number>([[toBigIntBE(kp3.publicKey), ip2num("10.0.0.1")]]),
+      name: "verifier2",
+      marketingUrl: "https://myverifier.com",
+      value: toNano(10005),
+    });
+
+    expect(res.transactions).to.have.transaction({
+      from: user,
+      exitCode: 421,
+      aborted: true,
+    });
+  });
+
+  // it.only("shouldn't allow verifier2 to send a message as verifier1", async () => {
+  //   let user = randomAddress("user");
+
+  //   let kp3 = await randomKeyPair();
+
+  //   await verifierRegistry.sendUpdateVerifier(blockchain.sender(user), {
+  //     id: sha256BN("verifier2"),
+  //     quorum: 1,
+  //     endpoints: new Map<bigint, number>([[toBigIntBE(kp3.publicKey), ip2num("10.0.0.1")]]),
+  //     name: "verifier2",
+  //     marketingUrl: "https://myverifier.com",
+  //     value: toNano(10005),
+  //   });
+
+  //   let src = randomAddress("src");
+  //   let dst = randomAddress("dst");
+  //   let msgBody = beginCell().storeUint(777, 32).endCell();
+
+  //   let desc = buildMsgDescription(sha256BN("verifier2"), 1500, src, dst, msgBody).endCell();
+
+  //   let res = await verifierRegistry.sendForwardMessage(blockchain.sender(src), {
+  //     desc,
+  //     signatures: new Map<bigint, Buffer>([
+  //       [toBigIntBE(kp3.publicKey), sign(desc.hash(), kp3.secretKey)],
+  //     ]),
+  //     value: toNano(3),
+  //   });
+
+  //   expect(res.transactions).to.have.transaction({
+  //     from: src,
+  //     exitCode: 97799,
+  //     aborted: false,
+  //   });
+
+  //   let outMessages = transactionsFrom(res.transactions, src)[0].outMessages;
+  //   let excess = outMessages.values()[0];
+  //   expect(excess.info.dest).to.equalAddress(dst);
+  //   // expect(excess.mode).to.equal(64);
+
+  //   let body = excess.body.beginParse();
+  //   expect(body.loadUint(32)).to.equal(777);
+  // });
 
   it("should not add new verifier, 20 limit", async () => {
     let cfg = await genDefaultVerifierRegistryConfig(admin);
