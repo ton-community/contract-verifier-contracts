@@ -147,9 +147,12 @@ const int   STAKE    = 10000000000000; ;; 10000 TON
             .store_slice(target_addr)
             .store_coins(0)
             .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-            .store_ref(payload_to_forward)
-        ;; attach the verifier id so downstream contract can ensure message is from the correct source
-            ;; .store_ref(begin_cell().store_uint(256, verifier_id).end_cell())
+            .store_ref(
+            begin_cell()
+                .store_ref(begin_cell().store_uint(verifier_id, 256).end_cell())  ;; attach the verifier id so downstream contract can ensure message is from the correct source
+                .store_ref(payload_to_forward)            
+            .end_cell()
+        )
             .end_cell(), 64);
 
     save_data();
@@ -184,8 +187,8 @@ const int   STAKE    = 10000000000000; ;; 10000 TON
         slice new_settings = in_msg_body;
 
         ;; validation
-        ;; int quorum = in_msg_body~load_uint(8); 
-        ;; throw_unless(421, quorum > 0);
+        int quorum = in_msg_body~load_uint(8); 
+        throw_unless(421, quorum > 0);
 
         in_msg_body~load_dict(); ;; pub_key_endpoints
         slice name_ref = in_msg_body~load_ref().begin_parse(); ;; name

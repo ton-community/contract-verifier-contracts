@@ -86,24 +86,34 @@ slice calculate_source_item_address(int wc, cell state_init) {
     return ();
   }
   slice sender_address = cs~load_msg_addr();
+  
+  var (min_tons, max_tons, admin, verifier_registry, source_item_code) = load_data();
+
+  if (equal_slices(sender_address, verifier_registry)) {
+    ;; the verifier id authenticated by the verifier registry
+    slice verifier_reg_cell = in_msg_body~load_ref().begin_parse();
+    int verified_verifier_id = verifier_reg_cell~load_uint(256);
+    slice forwarded_message = in_msg_body~load_ref().begin_parse();
+
+    int op = forwarded_message~load_uint(32);
+    int query_id = forwarded_message~load_uint(64);
+
+    if (op == op::deploy_source_item) {
+      throw_if(error::too_much_value, msg_value > max_tons);
+      throw_if(error::not_enough_value, msg_value < min_tons_lower_bound);
+      throw_if(error::not_enough_value, msg_value < min_tons);
+      int verifier_id = forwarded_message~load_uint(256);
+      throw_unless(error::access_denied, verifier_id == verified_verifier_id);
+      int verified_code_cell_hash = forwarded_message~load_uint(256);
+      cell source_content = forwarded_message~load_ref();
+      forwarded_message.end_parse();
+      deploy_source_item(verifier_id, verified_code_cell_hash, source_item_code, source_content);
+      return ();
+    }
+  }
 
   int op = in_msg_body~load_uint(32);
   int query_id = in_msg_body~load_uint(64);
-
-  var (min_tons, max_tons, admin, verifier_registry, source_item_code) = load_data();
-
-  if (op == op::deploy_source_item) {
-    throw_unless(error::access_denied, equal_slices(sender_address, verifier_registry));
-    throw_if(error::too_much_value, msg_value > max_tons);
-    throw_if(error::not_enough_value, msg_value < min_tons_lower_bound);
-    throw_if(error::not_enough_value, msg_value < min_tons);
-    int verifier_id = in_msg_body~load_uint(256);
-    int verified_code_cell_hash = in_msg_body~load_uint(256);
-    cell source_content = in_msg_body~load_ref();
-    in_msg_body.end_parse();
-    deploy_source_item(verifier_id, verified_code_cell_hash, source_item_code, source_content);
-    return ();
-  }
 
   if (op == op::change_verifier_registry) {
     throw_unless(error::access_denied, equal_slices(sender_address, admin));

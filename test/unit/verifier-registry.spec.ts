@@ -275,13 +275,15 @@ describe("Verifier Registry", () => {
       aborted: false,
     });
 
-    let outMessages = transactionsFrom(res.transactions, src)[0].outMessages;
-    let excess = outMessages.values()[0];
+    const outMessages = transactionsFrom(res.transactions, src)[0].outMessages;
+    const excess = outMessages.values()[0];
     expect(excess.info.dest).to.equalAddress(dst);
     // expect(excess.mode).to.equal(64);
 
-    let body = excess.body.beginParse();
-    expect(body.loadUint(32)).to.equal(777);
+    const body = excess.body.beginParse();
+    const [verifierIdCell, msgCell] = [body.loadRef().beginParse(), body.loadRef().beginParse()];
+    expect(verifierIdCell.loadUintBig(256)).to.equal(sha256BN("verifier1"));
+    expect(msgCell.loadUint(32)).to.equal(777);
   });
 
   it("should forward message, 2 out of 3 correct, quorum = 2", async () => {
@@ -313,7 +315,9 @@ describe("Verifier Registry", () => {
     // expect(excess.mode).to.equal(64); TODO
 
     let body = excess.body.beginParse();
-    expect(body.loadUint(32)).to.equal(777);
+    const [verifierIdCell, msgCell] = [body.loadRef().beginParse(), body.loadRef().beginParse()];
+    expect(verifierIdCell.loadUintBig(256)).to.equal(sha256BN("verifier1"));
+    expect(msgCell.loadUint(32)).to.equal(777);
   });
 
   it("should not forward message, 1 sign of 2", async () => {
