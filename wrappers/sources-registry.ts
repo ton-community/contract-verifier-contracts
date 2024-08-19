@@ -241,4 +241,12 @@ export class SourcesRegistry implements Contract {
       body,
     });
   }
+
+  async sendNoOp(provider: ContractProvider, via: Sender) {
+    await provider.internal(via, {
+      value: toNano("0.5"),
+      sendMode: SendMode.PAY_GAS_SEPARATELY,
+      body: beginCell().endCell(),
+    });
+  }
 }

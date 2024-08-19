@@ -63,7 +63,6 @@ describe("Sources", () => {
     it("should deploy a source contract item", async () => {
       const send = await sourceRegistryContract.sendDeploySource(
         blockchain.sender(verifierRegistryAddress),
-
         {
           verifierId: specs[0].verifier,
           codeCellHash: specs[0].codeCellHash,
@@ -461,6 +460,19 @@ describe("Sources", () => {
       expect(send.transactions).to.have.transaction({
         from: verifierRegistryAddress,
         exitCode: 901,
+      });
+    });
+  });
+
+  describe("No op", () => {
+    it("throws on no ops", async () => {
+      const notVerifier = await blockchain.treasury("non-verifier");
+
+      const send = await sourceRegistryContract.sendNoOp(notVerifier.getSender());
+
+      expect(send.transactions).to.have.transaction({
+        from: notVerifier.address,
+        exitCode: 0,
       });
     });
   });
