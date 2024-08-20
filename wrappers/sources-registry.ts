@@ -13,6 +13,7 @@ import {
 
 import { toBigIntBE } from "bigint-buffer";
 import { Sha256 } from "@aws-crypto/sha256-js";
+import { sha256BN } from "../test/unit/helpers";
 
 export function sourceRegistryConfigToCell(params: {
   minTons: bigint;
@@ -45,11 +46,11 @@ export class SourcesRegistry implements Contract {
 
   static create(
     params: {
-      verifierRegistryAddress: Address,
-      admin: Address,
-      sourceItemCode: Cell,
-      minTons?: bigint,
-      maxTons?: bigint,
+      verifierRegistryAddress: Address;
+      admin: Address;
+      sourceItemCode: Cell;
+      minTons?: bigint;
+      maxTons?: bigint;
     },
     code: Cell,
     workchain = 0
@@ -135,7 +136,8 @@ export class SourcesRegistry implements Contract {
       jsonURL: string;
       version: number;
       value: bigint;
-    }
+    },
+    verifiedVerifierId = params.verifierId
   ) {
     const body = beginCell()
       .storeUint(1002, 32)
@@ -147,7 +149,10 @@ export class SourcesRegistry implements Contract {
     await provider.internal(via, {
       value: params.value,
       sendMode: SendMode.PAY_GAS_SEPARATELY,
-      body,
+      body: beginCell()
+        .storeRef(beginCell().storeUint(sha256BN(verifiedVerifierId), 256).endCell())
+        .storeRef(body)
+        .endCell(),
     });
   }
 
@@ -234,6 +239,14 @@ export class SourcesRegistry implements Contract {
       value: params.value,
       sendMode: SendMode.PAY_GAS_SEPARATELY,
       body,
+    });
+  }
+
+  async sendNoOp(provider: ContractProvider, via: Sender) {
+    await provider.internal(via, {
+      value: toNano("0.5"),
+      sendMode: SendMode.PAY_GAS_SEPARATELY,
+      body: beginCell().storeUint(8888, 32).storeUint(0, 64).endCell(),
     });
   }
 }

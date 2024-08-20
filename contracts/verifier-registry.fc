@@ -18,7 +18,7 @@ const slice REGISTERED_TEXT = "You were successfully registered as a verifier";
 const slice UPDATED_TEXT    = "You successfully updated verifier data";
 
 const int   EXIT_FEE = 200000000;      ;; 0.20 TON
-const int   STAKE    = 10000000000000; ;; 10000 TON
+const int   STAKE    = 1000000000000; ;; 1000 TON
 
 () save_data() impure inline_ref {
     set_data(begin_cell()
@@ -69,6 +69,7 @@ const int   STAKE    = 10000000000000; ;; 10000 TON
 () update_verifier(int id, slice new_settings, slice sender_address, int balance, int coins_sent) impure inline {
     slice admin = sender_address;
     throw_if(402, new_settings.slice_depth() > 10); ;; should allow for 100 nodes, prevents storage attack
+
     (slice cfg, int ok) = storage::verifiers.udict_get?(256, id);
     if (ok) { ;; exists, check is admin
         admin = cfg~load_msg_addr();
@@ -146,7 +147,13 @@ const int   STAKE    = 10000000000000; ;; 10000 TON
             .store_slice(target_addr)
             .store_coins(0)
             .store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-            .store_ref(payload_to_forward).end_cell(), 64);
+            .store_ref(
+            begin_cell()
+                .store_ref(begin_cell().store_uint(verifier_id, 256).end_cell())  ;; attach the verifier id so downstream contract can ensure message is from the correct source
+                .store_ref(payload_to_forward)            
+            .end_cell()
+        )
+            .end_cell(), 64);
 
     save_data();
 }
@@ -180,7 +187,9 @@ const int   STAKE    = 10000000000000; ;; 10000 TON
         slice new_settings = in_msg_body;
 
         ;; validation
-        in_msg_body~load_uint(8); ;; quorum
+        int quorum = in_msg_body~load_uint(8); 
+        throw_unless(421, quorum > 0);
+
         in_msg_body~load_dict(); ;; pub_key_endpoints
         slice name_ref = in_msg_body~load_ref().begin_parse(); ;; name
         throw_unless(420, string_hash(name_ref) == id);

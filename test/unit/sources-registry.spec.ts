@@ -41,10 +41,10 @@ describe("Sources", () => {
     sourceRegistryContract = blockchain.openContract(
       SourcesRegistry.create(
         {
-          admin: admin.address, 
+          admin: admin.address,
           verifierRegistryAddress,
-          sourceItemCode
-        }, 
+          sourceItemCode,
+        },
         code
       )
     );
@@ -63,7 +63,6 @@ describe("Sources", () => {
     it("should deploy a source contract item", async () => {
       const send = await sourceRegistryContract.sendDeploySource(
         blockchain.sender(verifierRegistryAddress),
-
         {
           verifierId: specs[0].verifier,
           codeCellHash: specs[0].codeCellHash,
@@ -88,18 +87,23 @@ describe("Sources", () => {
       expect(await parseUrlFromGetSourceItemData(sourceItemContract)).to.equal(specs[0].jsonURL);
     });
 
-    it("disallows a non-verifier reg to deploy a source item", async () => {
-      const notVerifier = await blockchain.treasury("non-verifier");
-      const send = await sourceRegistryContract.sendDeploySource(notVerifier.getSender(), {
-        verifierId: specs[0].verifier,
-        codeCellHash: specs[0].codeCellHash,
-        jsonURL: specs[0].jsonURL,
-        version: 1,
-        value: toNano("0.5"),
-      });
+    it("disallows a spoofed verifier id to set a deploy item", async () => {
+      const send = await sourceRegistryContract.sendDeploySource(
+        blockchain.sender(verifierRegistryAddress),
+
+        {
+          verifierId: specs[0].verifier,
+          codeCellHash: specs[0].codeCellHash,
+          jsonURL: specs[0].jsonURL,
+          version: 1,
+          value: toNano("0.5"),
+        },
+        "spoofedVerifier"
+      );
+
       expect(send.transactions).to.have.transaction({
-        from: notVerifier.address,
-        exitCode: 401,
+        from: verifierRegistryAddress,
+        exitCode: 402,
       });
     });
   });
@@ -456,6 +460,19 @@ describe("Sources", () => {
       expect(send.transactions).to.have.transaction({
         from: verifierRegistryAddress,
         exitCode: 901,
+      });
+    });
+  });
+
+  describe("No op", () => {
+    it("throws on no ops", async () => {
+      const notVerifier = await blockchain.treasury("non-verifier");
+
+      const send = await sourceRegistryContract.sendNoOp(notVerifier.getSender());
+
+      expect(send.transactions).to.have.transaction({
+        from: notVerifier.address,
+        exitCode: 0xffff,
       });
     });
   });
