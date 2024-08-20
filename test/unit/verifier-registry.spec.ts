@@ -204,7 +204,7 @@ describe("Verifier Registry", () => {
     if (exit.info.type === "internal") {
       expect(Number(exit.info.value.coins)).to.be.gte(
         // TODO
-        Number(toNano(10000) - toNano("0.2"))
+        Number(toNano(1000) - toNano("0.2"))
       );
     }
     // expect(exit.mode).to.equal(64); TODO
@@ -486,7 +486,7 @@ describe("Verifier Registry", () => {
       endpoints: new Map<bigint, number>([[toBigIntBE(kp3.publicKey), ip2num("10.0.0.1")]]),
       name: "verifier2",
       marketingUrl: "https://myverifier.com",
-      value: toNano(10005),
+      value: toNano(1005),
     });
 
     expect(res.transactions).to.have.transaction({
