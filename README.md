@@ -18,7 +18,7 @@ This repo is a part of the following:
 3. Flows carried out:
    * (Sender: wallet1) Change admin from wallet1 to wallet2
    * (Sender: wallet2) Change verifier address from actual to zero address; then revert to actual
-   * (Sender: wallet2) Set code to `sources-registry-only-set-code.fc`; then revert to original
+   * (Sender: wallet2) Set code to `EQAThFLJkzuWl5hlhKPh2yWrIJ6dcx5Mbg0bJnb6MbhM9Tpa`; then revert to original
    * (Sender: wallet2) Change admin from wallet2 to wallet1
    * (Sender: wallet1) Set source item code to `...?.fc`; then revert to original
    
