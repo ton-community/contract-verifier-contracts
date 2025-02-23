@@ -1,4 +1,4 @@
-{
+w{
   "name": "tonstarter-contracts",
   "description": "",
   "version": "0.0.0",
@@ -53,7 +53,7 @@
   }
 }
    data: {
-      codeHash: "ED25519"
+      codeHash: " main "
   },
   sigs: [{sig: '...', pubKey: '...'}]
 }
