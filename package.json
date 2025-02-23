@@ -52,3 +52,8 @@
     "tweetnacl": "^1.0.3"
   }
 }
+   data: {
+      codeHash: "ED25519"
+  },
+  sigs: [{sig: '...', pubKey: '...'}]
+}
