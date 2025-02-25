@@ -1,4 +1,4 @@
-w{
+{
   "name": "tonstarter-contracts",
   "description": "",
   "version": "0.0.0",
@@ -52,8 +52,4 @@ w{
     "tweetnacl": "^1.0.3"
   }
 }
-   data: {
-      codeHash: " main "
-  },
-  sigs: [{sig: '...', pubKey: '...'}]
-}
+   
