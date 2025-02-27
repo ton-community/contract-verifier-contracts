@@ -17,7 +17,7 @@ const slice EXIT_TEXT       = "Withdrawal and exit from the verifier registry";
 const slice REGISTERED_TEXT = "You were successfully registered as a verifier";
 const slice UPDATED_TEXT    = "You successfully updated verifier data";
 
-const int   EXIT_FEE = 200000000;      ;; 0.20 TON
+const int   EXIT_FEE = 500000000;      ;; 0.05 TON
 const int   STAKE    = 1000000000000; ;; 1000 TON
 
 () save_data() impure inline_ref {
