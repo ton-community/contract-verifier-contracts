@@ -1,0 +1,44 @@
+{
+    "eepl.target.device": {
+        "description": "M72FSR",
+        "devManId": 4,
+        "devName": "M72FSR",
+        "frameWorkVerA": 0,
+        "frameWorkVerB": 205,
+        "frameworkSize": 71936,
+        "periphInfo": {
+            "isDesktop": false,
+            "isResourcesInternal": false,
+            "aoCount": 1,
+            "relayCount": 4,
+            "uartCount": 1,
+            "uiCount": 4,
+            "flashSize": 262144,
+            "ramSize": 65536,
+            "flashPageSize": 256
+        },
+        "triplet": "thumbv7m-none-none-eabi",
+        "runtime": "clang_rt.builtins-armv7m",
+        "stdlib": "armv7m/std/picolib",
+        "includePaths": [],
+        "stdlibs": [
+            "-lc",
+            "-lm",
+            "-nostdlib"
+        ],
+        "pathToFile": "/home/vscode/.eec/targets/M72FSR/targetInfo.json"
+    },
+    "idf.pythonInstallPath": "/usr/bin/python",
+    "marquee.widgets.npm-stats.packageNames": [
+        "tonstarter-contracts"
+    ],
+    "python.testing.unittestArgs": [
+        "-v",
+        "-s",
+        "./test",
+        "-p",
+        "*test.py"
+    ],
+    "python.testing.pytestEnabled": false,
+    "python.testing.unittestEnabled": true
+}
