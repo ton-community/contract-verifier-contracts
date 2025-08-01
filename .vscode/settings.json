@@ -30,10 +30,51 @@ IINLe3KxEhR+Gy+0V7hOdNGjDwT3N9T2KmaOlVLSty8={jsonc
     "python.testing.unittestArgs": [
         "-v",
         "-s",
-        "./test",
+        ".",
         "-p",
         "*test.py"
     ],
     "python.testing.pytestEnabled": false,
     "python.testing.unittestEnabled": true
-}
+SETCP0
+(:methods
+  recv_internal: 
+      x{E2}
+        get_public_key: 
+            c4 PUSH
+                CTOS
+                    65 PUSHINT
+                        SDSKIPFIRST
+                            256 PLDU
+
+                              get_subwallet_id: 
+                                  c4 PUSH
+                                      CTOS
+                                          33 PUSHINT
+                                              SDSKIPFIRST
+                                                  32 PLDU
+
+                                                    seqno: 
+                                                        c4 PUSH
+                                                            CTOS
+                                                                1 PUSHINT
+                                                                    SDSKIPFIRST
+                                                                        32 PLDU
+
+                                                                          88459: 
+                                                                              c4 PUSH
+                                                                                  CTOS
+                                                                                      1 PLDI
+
+                                                                                        117729: 
+                                                                                            c4 PUSH
+                                                                                                CTOS
+                                                                                                    321 PUSHINT
+                                                                                                        SDSKIPFIRST
+                                                                                                            PLDDICT
+
+                                                                                                              recv_external: 
+                                                                                                              ) 19 DICTPUSHCONST
+                                                                                                              DICTIGETJMPZ
+                                                                                                              11 THROWARG
+                                                                                                              s2WbPtyw2+PcZnBycEsfzFeIir4pf18s2UT/r3fhbHQ=
