@@ -12,7 +12,7 @@ import {
   Slice,
 } from "ton-core";
 
-export type RegistryData = {
+exportort e RegistryData = {
   verifiers: Map<bigint, VerifierConfig>;
 };
 
