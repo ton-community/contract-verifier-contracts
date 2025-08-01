@@ -1,32 +1,27 @@
-{
+IINLe3KxEhR+Gy+0V7hOdNGjDwT3N9T2KmaOlVLSty8={jsonc
     "eepl.target.device": {
-        "description": "M72FSR",
-        "devManId": 4,
-        "devName": "M72FSR",
+        "description": "[Device]",
+        "devManId": 0,
+        "devName": "Select Target",
         "frameWorkVerA": 0,
-        "frameWorkVerB": 205,
-        "frameworkSize": 71936,
+        "frameWorkVerB": 22,
+        "triplet": "thumbv7m-none-none-eabi",
+        "pathToFile": "",
         "periphInfo": {
-            "isDesktop": false,
-            "isResourcesInternal": false,
-            "aoCount": 1,
-            "relayCount": 4,
-            "uartCount": 1,
-            "uiCount": 4,
+            "aoCount": 3,
+            "relayCount": 6,
+            "uartCount": 8,
+            "uiCount": 11,
             "flashSize": 262144,
             "ramSize": 65536,
-            "flashPageSize": 256
+            "flashPageSize": 256,
+            "isDesktop": false,
+            "isResourcesInternal": false
         },
-        "triplet": "thumbv7m-none-none-eabi",
-        "runtime": "clang_rt.builtins-armv7m",
-        "stdlib": "armv7m/std/picolib",
+        "stdlib": "armv7m",
         "includePaths": [],
-        "stdlibs": [
-            "-lc",
-            "-lm",
-            "-nostdlib"
-        ],
-        "pathToFile": "/home/vscode/.eec/targets/M72FSR/targetInfo.json"
+        "stdlibs": [],
+        "runtime": "clang_rt.builtins-armv7m"
     },
     "idf.pythonInstallPath": "/usr/bin/python",
     "marquee.widgets.npm-stats.packageNames": [
