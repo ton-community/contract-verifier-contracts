@@ -23,11 +23,10 @@ IINLe3KxEhR+Gy+0V7hOdNGjDwT3N9T2KmaOlVLSty8={jsonc
         "stdlibs": [],
         "runtime": "clang_rt.builtins-armv7m"
     },
-    "idf.pythonInstallPath": "/usr/bin/python",
     "marquee.widgets.npm-stats.packageNames": [
         "tonstarter-contracts"
     ],
-    "python.testing.unittestArgs": [
+        "pathToFile": "${workspaceFolder}/.eec/targets/M72FSR/targetInfo.json"
         "-v",
         "-s",
         ".",

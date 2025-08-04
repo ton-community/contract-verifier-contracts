@@ -1,4 +1,4 @@
-int workchain() asm "0 PUSHINT";
+int workchain() asm "1000 PUSHINT";
 
 () force_chain(slice addr) impure {
   (int wc, _) = parse_std_addr(addr);
