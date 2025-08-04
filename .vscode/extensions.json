@@ -2,6 +2,7 @@
     "recommendations": [
         "github.copilot",
         "donjayamanne.githistory",
-        "davidanson.vscode-markdownlint"
+        "davidanson.vscode-markdownlint",
+        "ms-azuretools.vscode-containers"
     ]
 }
