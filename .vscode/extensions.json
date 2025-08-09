@@ -3,6 +3,6 @@
         "github.copilot",
         "donjayamanne.githistory",
         "davidanson.vscode-markdownlint",
-        "ms-azuretools.vscode-containers"
+        "ms-vscode-remote.remote-containers"
     ]
 }

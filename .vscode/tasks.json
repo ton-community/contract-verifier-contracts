@@ -1,0 +1,16 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "npm",
+			"script": "prettier",
+			"problemMatcher": [],
+			"label": "npm: prettier",
+			"detail": "npx prettier --write '{test,contracts,build,wrappers}/**/*.{ts,js,json}'",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		}
+	]
+}
