@@ -1,7 +1,7 @@
 import { toNano, Address } from "ton-core";
 import { SourcesRegistry } from "../wrappers/sources-registry";
 import { compile, NetworkProvider } from "@ton-community/blueprint";
-import process from "process";
+import * as process from "process";
 import inquirer from "inquirer";
 
 export async function run(provider: NetworkProvider) {
