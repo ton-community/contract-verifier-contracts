@@ -6,7 +6,7 @@ import {
   Cell,
   toNano,
   TonClient,
-  WalletContractV3R2,
+  WalletContractV4,
   OpenedContract,
 } from "ton";
 import { getHttpEndpoint } from "@orbs-network/ton-gateway";
@@ -26,7 +26,7 @@ async function getWallet(tc: TonClient, mnemonic: string[]) {
 
   const walletKey = await mnemonicToWalletKey(deployerMnemonic.split(" "));
   const walletContract = tc.open(
-    WalletContractV3R2.create({ publicKey: walletKey.publicKey, workchain: 0 })
+    WalletContractV4.create({ publicKey: walletKey.publicKey, workchain: 0 })
   );
   return { walletContract, walletKey };
 }
@@ -42,7 +42,7 @@ async function waitToVerify(wallet: WalletStruct, seqnoBefore: number) {
 }
 
 type WalletStruct = {
-  walletContract: OpenedContract<WalletContractV3R2>;
+  walletContract: OpenedContract<WalletContractV4>;
   walletKey: KeyPair;
 };
 
