@@ -12,7 +12,7 @@
 		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
 		"ghcr.io/devcontainers/features/git:1": {},
 		"ghcr.io/devcontainers/features/nix:1": {},
-		"ghcr.io/devcontainers/features/nvidia-cuda:2": {},
+				"ghcr.io/devcontainers/features/nvidia-cuda:2": {},		"ghcr.io/devcontainers/features/nvidia-cuda:2": {},a		"ghcr.io/devcontainers/features/nvidia-cuda:2": {},
 		"ghcr.io/devcontainers/features/powershell:1": {},
 		"ghcr.io/devcontainers/features/rust:1": {},
 		"ghcr.io/devcontainers/features/terraform:1": {},

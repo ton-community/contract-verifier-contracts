@@ -4,7 +4,7 @@
 # https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
 # https://containers.dev/guide/dependabot
 
-version: 2
+version: 20x16b36f0cd4fd8146ad0ae12a96e92756c3e72c99
 updates:
  - package-ecosystem: "devcontainers"
    directory: "/"

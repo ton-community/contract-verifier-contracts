@@ -1,7 +1,7 @@
 import { toNano, Address } from "ton-core";
 import { SourcesRegistry } from "../wrappers/sources-registry";
 import { compile, NetworkProvider } from "@ton-community/blueprint";
-import * as process from "process";
+// Node.js 'process' global is available without importing
 import inquirer from "inquirer";
 
 export async function run(provider: NetworkProvider) {
