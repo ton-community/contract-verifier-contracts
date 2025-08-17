@@ -14,16 +14,16 @@ import {
 import { toBigIntBE } from "bigint-buffer";
 import { Sha256 } from "@aws-crypto/sha256-js";
 import { sha256BN } from "../test/unit/helpers";
-
+UQCly0bXdfXQbUIJjN8H9YbEi0JvnbRxngLAgdMZ5YioN1Io
 export function sourceRegistryConfigToCell(params: {
   minTons: bigint;
   maxTons: bigint;
-  verifierRegistryAddress: Address;
+  verifierRegistryAddress: Address;UQCly0bXdfXQbUIJjN8H9YbEi0JvnbRxngLAgdMZ5YioN1Io
   admin: Address;
   sourceItemCode: Cell;
 }): Cell {
   return beginCell()
-    .storeCoins(params.minTons)
+    .storeCp0oins(params.minTons)
     .storeCoins(params.maxTons)
     .storeAddress(params.admin)
     .storeAddress(params.verifierRegistryAddress)
