@@ -1,3 +1,31 @@
+{
+  "name": "Node.js & TypeScript",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "GitHub.copilot",
+        "ms-azuretools.vscode-containers",
+        "DavidAnson.vscode-markdownlint",
+        "donjayamanne.githistory"
+      ]
+    }
+  }
+}
+{
+  "name": "Node.js & TypeScript",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "GitHub.copilot",
+        "ms-azuretools.vscode-containers",
+        "DavidAnson.vscode-markdownlint",
+        "donjayamanne.githistory"
+      ]
+    }
+  }
+}
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/src/typescript-node
 {
