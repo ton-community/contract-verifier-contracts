@@ -1,11 +1,11 @@
 import { expect } from "chai";
 
-import { Cell, toNano, Dictionary, Contract, beginCell } from "ton-core";
-import { Blockchain, SandboxContract, TreasuryContract } from "@ton-community/sandbox";
-import { sign, KeyPair } from "ton-crypto";
-import "@ton-community/test-utils";
+import { Cell, toNano, Dictionary, Contract, beginCell } from "@ton/core";
+import { Blockchain, SandboxContract, TreasuryContract } from "@ton/sandbox";
+import { sign, KeyPair } from "@ton/crypto";
+import "@ton/test-utils";
 import { toBigIntBE } from "bigint-buffer";
-import { compile } from "@ton-community/blueprint";
+import { compile } from "@ton/blueprint";
 
 import { randomAddress, randomKeyPair } from "./helpers";
 import {
@@ -100,7 +100,7 @@ describe("Verifier Registry", () => {
     });
 
     let data = await verifierRegistry.getVerifier(sha256BN("verifier1"));
-    let sets = (data.settings as Cell).beginParse();
+    let sets = data.settings!.beginParse();
     let quorum = sets.loadUint(8);
     let settings = sets.loadDict<bigint, number>(
       Dictionary.Keys.BigUint(256),

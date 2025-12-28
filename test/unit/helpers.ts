@@ -1,9 +1,9 @@
 import { createHash } from "crypto";
 import Prando from "prando";
-import { Address } from "ton-core";
-import { mnemonicNew, mnemonicToPrivateKey } from "ton-crypto";
+import { Address } from "@ton/core";
+import { mnemonicNew, mnemonicToPrivateKey } from "@ton/crypto";
 import { toBigIntBE } from "bigint-buffer";
-import { BlockchainTransaction } from "@ton-community/sandbox";
+import { BlockchainTransaction } from "@ton/sandbox";
 
 export function transactionsFrom(transactions: BlockchainTransaction[], address: Address) {
   return transactions.filter(

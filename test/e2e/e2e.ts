@@ -8,10 +8,10 @@ import {
   TonClient,
   WalletContractV3R2,
   OpenedContract,
-} from "ton";
+} from "@ton/ton";
 import { getHttpEndpoint } from "@orbs-network/ton-gateway";
-import { KeyPair, mnemonicToWalletKey } from "ton-crypto";
-import { compile } from "@ton-community/blueprint";
+import { KeyPair, mnemonicToWalletKey } from "@ton/crypto";
+import { compile } from "@ton/blueprint";
 
 import { zeroAddress } from "../unit/helpers";
 import { SourcesRegistry } from "../../wrappers/sources-registry";

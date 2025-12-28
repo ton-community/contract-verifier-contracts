@@ -6,7 +6,7 @@ import {
   ContractProvider,
   Sender,
   SendMode,
-} from "ton-core";
+} from "@ton/core";
 
 export class SourcesRegistryOnlySetCode implements Contract {
   constructor(readonly address: Address, readonly init?: { code: Cell; data: Cell }) {}

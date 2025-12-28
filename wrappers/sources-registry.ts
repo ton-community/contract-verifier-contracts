@@ -9,7 +9,7 @@ import {
   Sender,
   SendMode,
   toNano,
-} from "ton-core";
+} from "@ton/core";
 
 import { toBigIntBE } from "bigint-buffer";
 import { Sha256 } from "@aws-crypto/sha256-js";

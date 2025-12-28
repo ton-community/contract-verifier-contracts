@@ -1,6 +1,6 @@
-import { toNano, Address } from "ton-core";
+import { toNano, Address } from "@ton/core";
 import { SourcesRegistry } from "../wrappers/sources-registry";
-import { compile, NetworkProvider } from "@ton-community/blueprint";
+import { compile, NetworkProvider } from "@ton/blueprint";
 import inquirer from "inquirer";
 
 export async function run(provider: NetworkProvider) {

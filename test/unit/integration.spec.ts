@@ -1,10 +1,10 @@
 import { expect } from "chai";
 
-import { toNano, Cell, contractAddress, Address, beginCell } from "ton-core";
-import { KeyPair, sign } from "ton-crypto";
-import { Blockchain, SandboxContract, TreasuryContract } from "@ton-community/sandbox";
+import { toNano, Cell, contractAddress, Address, beginCell } from "@ton/core";
+import { KeyPair, sign } from "@ton/crypto";
+import { Blockchain, SandboxContract, TreasuryContract } from "@ton/sandbox";
 import { toBigIntBE } from "bigint-buffer";
-import { compile } from "@ton-community/blueprint";
+import { compile } from "@ton/blueprint";
 
 import { randomAddress } from "./helpers";
 import { SourcesRegistry, toSha256Buffer } from "../../wrappers/sources-registry";

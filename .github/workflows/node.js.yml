@@ -15,7 +15,9 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [16.x, 17.x]
+        node-version: [18.x, 24.x]
+        # 18 is lowest version for which compilation works
+        # 24 is latest LTS
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
     steps:
