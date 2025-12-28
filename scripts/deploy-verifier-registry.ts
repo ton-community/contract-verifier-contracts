@@ -1,6 +1,6 @@
-import { toNano } from 'ton-core';
+import { toNano } from '@ton/core';
 import { VerifierRegistry } from '../wrappers/verifier-registry';
-import { compile, NetworkProvider } from '@ton-community/blueprint';
+import { compile, NetworkProvider } from '@ton/blueprint';
 
 export async function run(provider: NetworkProvider) {
     const verifierRegistry = provider.open(

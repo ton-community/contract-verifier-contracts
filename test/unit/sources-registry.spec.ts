@@ -1,8 +1,8 @@
 import { expect } from "chai";
 
-import { Cell, contractAddress, beginCell, toNano, Address } from "ton-core";
-import { Blockchain, SandboxContract, TreasuryContract } from "@ton-community/sandbox";
-import { compile } from "@ton-community/blueprint";
+import { Cell, contractAddress, beginCell, toNano, Address } from "@ton/core";
+import { Blockchain, SandboxContract, TreasuryContract } from "@ton/sandbox";
+import { compile } from "@ton/blueprint";
 
 import { randomAddress } from "./helpers";
 import { SourcesRegistry } from "../../wrappers/sources-registry";
