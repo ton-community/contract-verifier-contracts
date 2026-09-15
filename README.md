@@ -1,3 +1,7 @@
+> [!CAUTION]
+> This verifier version is deprecated. Please use the [new verifier](https://github.com/ton-blockchain/acton/tree/master/apps/verifier)
+> instead.
+
 # contract-verifier-contracts
 
 A sources registry contract for registering a data url for a given code cell hash.
